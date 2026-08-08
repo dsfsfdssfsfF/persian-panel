@@ -1,6 +1,8 @@
 {
   "log": {
-    "loglevel": "warning"
+    "loglevel": "info",
+    "access": "/var/log/supervisor/xray-access.log",
+    "error": "/var/log/supervisor/xray-error.log"
   },
   "inbounds": [
     {
@@ -13,9 +15,19 @@
       },
       "streamSettings": {
         "network": "ws",
+        "security": "none",
         "wsSettings": {
-          "path": "/ws"
+          "path": "/ws",
+          "headers": {}
         }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
       }
     }
   ],
@@ -23,7 +35,9 @@
     {
       "protocol": "freedom",
       "tag": "direct",
-      "settings": {}
+      "settings": {
+        "domainStrategy": "UseIPv4"
+      }
     },
     {
       "protocol": "blackhole",
@@ -32,12 +46,30 @@
     }
   ],
   "routing": {
+    "domainStrategy": "IPIfNonMatch",
     "rules": [
       {
         "type": "field",
-        "ip": ["geoip:private"],
+        "ip": [
+          "geoip:private"
+        ],
         "outboundTag": "block"
       }
     ]
+  },
+  "policy": {
+    "levels": {
+      "0": {
+        "handshake": 4,
+        "connIdle": 300,
+        "uplinkOnly": 2,
+        "downlinkOnly": 5,
+        "bufferSize": 512
+      }
+    },
+    "system": {
+      "statsInboundUplink": false,
+      "statsInboundDownlink": false
+    }
   }
 }
