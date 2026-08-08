@@ -191,14 +191,28 @@ app.set('trust proxy', 1);
 app.use(compression());
 app.use(morgan('tiny'));
 
-// Proxy /ws → Xray
-app.use('/ws', createProxyMiddleware({
-  target  : 'http://127.0.0.1:10086',
+// Proxy /ws → Xray با WebSocket support کامل
+const wsProxy = createProxyMiddleware({
+  target      : 'http://127.0.0.1:10086',
   changeOrigin: true,
-  ws      : true,
-  logLevel: 'silent',
-  on: { error: err => console.error('[proxy]', err.message) }
-}));
+  ws          : true,
+  logLevel    : 'warn',
+  pathRewrite : { '^/ws': '/ws' },
+  on: {
+    error: (err, req, res) => {
+      console.error('[proxy error]', err.message);
+      if (res && res.writeHead) {
+        res.writeHead(502);
+        res.end('Proxy Error');
+      }
+    },
+    proxyReqWs: (proxyReq, req, socket) => {
+      console.log('[ws] connection from:', req.socket.remoteAddress);
+    }
+  }
+});
+
+app.use('/ws', wsProxy);
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
