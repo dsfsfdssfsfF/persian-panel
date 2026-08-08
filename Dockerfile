@@ -12,19 +12,17 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# نصب Xray
 RUN wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip \
-    && unzip Xray-linux-64.zip -d /usr/local/bin/xray-core \
-    && mv /usr/local/bin/xray-core/xray /usr/local/bin/xray \
+    && unzip -q Xray-linux-64.zip -d /tmp/xray \
+    && mv /tmp/xray/xray /usr/local/bin/xray \
     && chmod +x /usr/local/bin/xray \
-    && rm -rf Xray-linux-64.zip /usr/local/bin/xray-core
+    && rm -rf Xray-linux-64.zip /tmp/xray
 
 COPY package*.json ./
-RUN npm install
+RUN npm install && npm cache clean --force
 
 COPY . .
 
-# ساخت پوشه و کپی کانفیگ Xray
 RUN mkdir -p /etc/xray /data /app/public /var/log/supervisor && \
     cp /app/xray-config.json /etc/xray/config.json
 
