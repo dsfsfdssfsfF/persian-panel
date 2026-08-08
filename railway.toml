@@ -1,6 +1,9 @@
 [build]
 builder = "nixpacks"
 
+[build.nixpacksPlan.phases.setup]
+nixPkgs = ["nodejs_18", "python3", "gcc", "gnumake"]
+
 [deploy]
 startCommand = "node server.js"
 healthcheckPath = "/health"
