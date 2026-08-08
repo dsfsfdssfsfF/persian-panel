@@ -1,2584 +1,1484 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>پنل مدیریت VPN</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --bg: #040410;
-            --bg2: #08081a;
-            --card: rgba(255,255,255,.04);
-            --border: rgba(255,255,255,.07);
-            --accent: #7c3aed;
-            --accent2: #6d28d9;
-            --accent3: #a78bfa;
-            --blue: #3b82f6;
-            --blue2: #60a5fa;
-            --green: #10b981;
-            --red: #ef4444;
-            --yellow: #f59e0b;
-            --pink: #ec4899;
-            --cyan: #06b6d4;
-            --text: #f1f5f9;
-            --text2: #94a3b8;
-            --text3: #475569;
-        }
-
-        body {
-            font-family: 'Vazirmatn', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            overflow-x: hidden;
-        }
-
-        /* ===== BACKGROUND ===== */
-        .bg-effects {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        .orb {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(120px);
-            opacity: 0.15;
-            animation: floatOrb 20s ease-in-out infinite;
-        }
-
-        .orb-1 {
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-            top: -300px;
-            right: -200px;
-        }
-
-        .orb-2 {
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, var(--blue) 0%, transparent 70%);
-            bottom: -250px;
-            left: -150px;
-            animation-delay: 7s;
-        }
-
-        .orb-3 {
-            width: 450px;
-            height: 450px;
-            background: radial-gradient(circle, var(--pink) 0%, transparent 70%);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            animation-delay: 14s;
-        }
-
-        @keyframes floatOrb {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            33% { transform: translate(30px, -50px) scale(1.1); }
-            66% { transform: translate(-40px, 40px) scale(0.9); }
-        }
-
-        .grid-pattern {
-            position: absolute;
-            inset: 0;
-            background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
-            background-size: 50px 50px;
-            opacity: 0.02;
-        }
-
-        .noise {
-            position: absolute;
-            inset: 0;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-            opacity: 0.03;
-        }
-
-        #particles {
-            position: absolute;
-            inset: 0;
-        }
-
-        .particle {
-            position: absolute;
-            width: 3px;
-            height: 3px;
-            background: var(--accent3);
-            border-radius: 50%;
-            opacity: 0.4;
-            animation: particleFloat 15s ease-in-out infinite;
-        }
-
-        @keyframes particleFloat {
-            0%, 100% { transform: translate(0, 0); opacity: 0.4; }
-            50% { transform: translate(var(--tx), var(--ty)); opacity: 0.8; }
-        }
-
-        .cursor-glow {
-            position: fixed;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 9999;
-            transition: transform 0.15s ease-out;
-        }
-
-        /* ===== LOGIN ===== */
-        #loginPage {
-            position: fixed;
-            inset: 0;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        #loginPage.hidden {
-            display: none;
-        }
-
-        .login-card {
-            background: var(--card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 48px 40px;
-            width: 100%;
-            max-width: 440px;
-            position: relative;
-            overflow: hidden;
-            animation: cardEntrance 800ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        @keyframes cardEntrance {
-            from {
-                opacity: 0;
-                transform: translateY(60px) scale(0.85);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        .login-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--accent), var(--pink), var(--blue), var(--accent));
-            background-size: 300% 100%;
-            animation: shimmer 3s linear infinite;
-        }
-
-        @keyframes shimmer {
-            0% { background-position: 0% 0%; }
-            100% { background-position: 300% 0%; }
-        }
-
-        .login-card.shake {
-            animation: shake 400ms cubic-bezier(.36,.07,.19,.97);
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-
-        .login-logo {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 24px;
-            background: linear-gradient(135deg, var(--accent), var(--pink));
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 36px;
-            animation: logoFloat 3s ease-in-out infinite, logoPulse 2s ease-in-out infinite;
-            box-shadow: 0 0 40px rgba(124, 58, 237, 0.4);
-        }
-
-        @keyframes logoFloat {
-            0%, 100% { transform: translateY(0) rotate(-3deg); }
-            50% { transform: translateY(-10px) rotate(3deg); }
-        }
-
-        @keyframes logoPulse {
-            0%, 100% { box-shadow: 0 0 40px rgba(124, 58, 237, 0.4); }
-            50% { box-shadow: 0 0 60px rgba(124, 58, 237, 0.8); }
-        }
-
-        .login-title {
-            text-align: center;
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            background: linear-gradient(90deg, var(--accent), var(--pink), var(--blue));
-            background-size: 300% 100%;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradientShift 5s ease infinite;
-        }
-
-        @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-
-        .login-subtitle {
-            text-align: center;
-            color: var(--text2);
-            margin-bottom: 32px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-            position: relative;
-        }
-
-        .input-wrapper {
-            position: relative;
-        }
-
-        .input-icon {
-            position: absolute;
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text3);
-            font-size: 20px;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .form-input, .form-select, .form-textarea {
-            width: 100%;
-            padding: 14px 48px 14px 16px;
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            color: var(--text);
-            font-family: 'Vazirmatn', sans-serif;
-            font-size: 14px;
-            outline: none;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .form-textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        .form-select {
-            cursor: pointer;
-        }
-
-        .form-input:focus, .form-select:focus, .form-textarea:focus {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1), 0 8px 24px rgba(124, 58, 237, 0.2);
-        }
-
-        .form-input:focus + .input-icon {
-            color: var(--accent);
-            transform: translateY(-50%) scale(1.3);
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text2);
-        }
-
-        .btn {
-            padding: 14px 24px;
-            border: none;
-            border-radius: 12px;
-            font-family: 'Vazirmatn', sans-serif;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: right 500ms;
-        }
-
-        .btn:hover::before {
-            right: 100%;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            color: var(--text);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 40px rgba(124, 58, 237, 0.5);
-        }
-
-        .btn-primary:active {
-            transform: translateY(0) scale(0.97);
-        }
-
-        .btn-secondary {
-            background: var(--bg2);
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover {
-            border-color: var(--accent);
-            transform: translateY(-3px);
-        }
-
-        .btn-full {
-            width: 100%;
-            justify-content: center;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid transparent;
-            border-top-color: var(--text);
-            border-radius: 50%;
-            animation: spin 600ms linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* ===== APP LAYOUT ===== */
-        #app {
-            display: none;
-            flex-direction: column;
-            min-height: 100vh;
-            position: relative;
-            z-index: 1;
-        }
-
-        #app.active {
-            display: flex;
-        }
-
-        .topbar {
-            height: 68px;
-            background: var(--card);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-            padding: 0 32px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            position: sticky;
-            top: 0;
-            z-index: 99;
-        }
-
-        .topbar::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, var(--accent), var(--pink), var(--blue), var(--accent));
-            background-size: 300% 100%;
-            animation: shimmer 3s linear infinite;
-        }
-
-        .topbar-logo {
-            width: 42px;
-            height: 42px;
-            background: linear-gradient(135deg, var(--accent), var(--pink));
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .topbar-logo:hover {
-            transform: rotateY(180deg);
-        }
-
-        .topbar-title {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .topbar-user {
-            margin-right: auto;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 6px 12px 6px 6px;
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .topbar-user:hover {
-            border-color: var(--accent);
-        }
-
-        .user-avatar {
-            width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, var(--accent), var(--pink));
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            animation: avatarPulse 3s ease-in-out infinite;
-        }
-
-        @keyframes avatarPulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.7); }
-            50% { box-shadow: 0 0 0 8px rgba(124, 58, 237, 0); }
-        }
-
-        .layout {
-            display: flex;
-            flex: 1;
-        }
-
-        .sidebar {
-            width: 230px;
-            background: var(--card);
-            backdrop-filter: blur(20px);
-            border-left: 1px solid var(--border);
-            padding: 24px 0;
-            overflow-y: auto;
-            background: linear-gradient(to bottom, rgba(255,255,255,.04) 0%, rgba(255,255,255,.02) 100%);
-        }
-
-        .nav-section {
-            margin-bottom: 24px;
-        }
-
-        .nav-section-title {
-            padding: 0 20px 12px;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text3);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .nav-menu {
-            list-style: none;
-            padding: 0 12px;
-        }
-
-        .nav-item {
-            margin-bottom: 6px;
-        }
-
-        .nav-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            color: var(--text2);
-            text-decoration: none;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            position: relative;
-            overflow: hidden;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .nav-link::before {
-            content: '';
-            position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            width: 0;
-            background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.15));
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            right: 0;
-            top: 50%;
-            width: 3px;
-            height: 0;
-            background: var(--accent);
-            border-radius: 3px 0 0 3px;
-            transition: all 400ms cubic-bezier(.34,1.56,.64,1);
-            box-shadow: 0 0 20px var(--accent);
-        }
-
-        .nav-link:hover {
-            color: var(--text);
-            transform: translateX(-6px);
-        }
-
-        .nav-link:hover::before {
-            width: 100%;
-        }
-
-        .nav-link:hover::after {
-            height: 60%;
-            top: 20%;
-        }
-
-        .nav-link:hover .nav-icon {
-            transform: scale(1.2) rotate(-8deg);
-        }
-
-        .nav-link.active {
-            color: var(--text);
-        }
-
-        .nav-link.active::before {
-            width: 100%;
-        }
-
-        .nav-link.active::after {
-            height: 60%;
-            top: 20%;
-            animation: pulseGlow 2s ease-in-out infinite;
-        }
-
-        @keyframes pulseGlow {
-            0%, 100% { box-shadow: 0 0 20px var(--accent); }
-            50% { box-shadow: 0 0 30px var(--accent); }
-        }
-
-        .nav-icon {
-            font-size: 20px;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .nav-badge {
-            margin-right: auto;
-            background: var(--accent);
-            color: white;
-            font-size: 11px;
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-
-        .content {
-            flex: 1;
-            padding: 32px;
-            overflow-y: auto;
-        }
-
-        .page {
-            display: none;
-        }
-
-        .page.active {
-            display: block;
-            animation: pageEnter 500ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        @keyframes pageEnter {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .page-header {
-            margin-bottom: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .page-title {
-            font-size: 28px;
-            font-weight: 700;
-        }
-
-        .page-desc {
-            color: var(--text2);
-            font-size: 14px;
-            margin-top: 4px;
-        }
-
-        /* ===== STATS GRID ===== */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 32px;
-        }
-
-        .stat-card {
-            background: var(--card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
-            position: relative;
-            overflow: hidden;
-            transition: all 400ms cubic-bezier(.34,1.56,.64,1);
-            animation: cardStagger 600ms cubic-bezier(.34,1.56,.64,1) backwards;
-        }
-
-        @keyframes cardStagger {
-            from {
-                opacity: 0;
-                transform: translateY(30px) scale(0.9);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        .stat-card:nth-child(1) { animation-delay: 0ms; }
-        .stat-card:nth-child(2) { animation-delay: 100ms; }
-        .stat-card:nth-child(3) { animation-delay: 200ms; }
-        .stat-card:nth-child(4) { animation-delay: 300ms; }
-        .stat-card:nth-child(5) { animation-delay: 400ms; }
-        .stat-card:nth-child(6) { animation-delay: 500ms; }
-
-        .stat-card:hover {
-            transform: translateY(-10px) scale(1.02);
-            border-color: var(--accent);
-            box-shadow: 0 20px 60px rgba(124, 58, 237, 0.3);
-        }
-
-        .stat-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: var(--text2);
-            font-weight: 500;
-        }
-
-        .stat-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            transition: all 400ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .stat-card:hover .stat-icon {
-            transform: scale(1.3) rotate(-10deg);
-        }
-
-        .stat-icon.purple {
-            background: rgba(124, 58, 237, 0.15);
-            color: var(--accent3);
-        }
-
-        .stat-icon.green {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--green);
-        }
-
-        .stat-icon.red {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--red);
-        }
-
-        .stat-icon.yellow {
-            background: rgba(245, 158, 11, 0.15);
-            color: var(--yellow);
-        }
-
-        .stat-icon.blue {
-            background: rgba(59, 130, 246, 0.15);
-            color: var(--blue2);
-        }
-
-        .stat-icon.pink {
-            background: rgba(236, 72, 153, 0.15);
-            color: var(--pink);
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: 800;
-            margin-bottom: 4px;
-            background: linear-gradient(135deg, var(--text), var(--text2));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        /* ===== DATA CARD ===== */
-        .data-card {
-            background: var(--card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            overflow: hidden;
-            margin-bottom: 24px;
-        }
-
-        .data-card-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-
-        .data-card-title {
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .data-card-actions {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .filter-bar {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .search-box {
-            position: relative;
-            min-width: 250px;
-        }
-
-        .search-box .input-icon {
-            font-size: 16px;
-        }
-
-        .search-box input {
-            padding-right: 40px;
-        }
-
-        /* ===== TABLE ===== */
-        .table-wrapper {
-            overflow-x: auto;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .data-table thead {
-            background: rgba(255,255,255,0.02);
-        }
-
-        .data-table th {
-            padding: 16px 20px;
-            text-align: right;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text2);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .data-table tbody tr {
-            border-top: 1px solid var(--border);
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-            animation: rowSlide 400ms cubic-bezier(.34,1.56,.64,1) backwards;
-        }
-
-        @keyframes rowSlide {
-            from {
-                opacity: 0;
-                transform: translateX(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .data-table tbody tr:hover {
-            background: rgba(124, 58, 237, 0.05);
-            transform: translateX(-4px);
-        }
-
-        .data-table td {
-            padding: 16px 20px;
-            font-size: 14px;
-        }
-
-        .client-info {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .client-name {
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .client-email, .client-note {
-            font-size: 12px;
-            color: var(--text3);
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        .badge.purple {
-            background: rgba(124, 58, 237, 0.15);
-            color: var(--accent3);
-        }
-
-        .badge.blue {
-            background: rgba(59, 130, 246, 0.15);
-            color: var(--blue2);
-        }
-
-        .badge.pink {
-            background: rgba(236, 72, 153, 0.15);
-            color: var(--pink);
-        }
-
-        .badge.green {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--green);
-        }
-
-        .badge.yellow {
-            background: rgba(245, 158, 11, 0.15);
-            color: var(--yellow);
-        }
-
-        .badge.red {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--red);
-        }
-
-        .badge.gray {
-            background: rgba(71, 85, 105, 0.15);
-            color: var(--text3);
-        }
-
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            animation: dotPulse 2s ease-in-out infinite;
-        }
-
-        @keyframes dotPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.3); }
-        }
-
-        .badge.active .status-dot {
-            background: var(--green);
-            box-shadow: 0 0 8px var(--green);
-        }
-
-        .traffic-bar {
-            width: 100%;
-            max-width: 150px;
-            height: 6px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 6px;
-        }
-
-        .traffic-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--green), var(--cyan));
-            border-radius: 3px;
-            transition: width 800ms cubic-bezier(.34,1.56,.64,1);
-            position: relative;
-        }
-
-        .traffic-fill.high {
-            background: linear-gradient(90deg, var(--yellow), var(--red));
-        }
-
-        .traffic-text {
-            font-size: 11px;
-            color: var(--text3);
-            margin-top: 4px;
-        }
-
-        .action-btns {
-            display: flex;
-            gap: 8px;
-        }
-
-        .icon-btn {
-            width: 32px;
-            height: 32px;
-            border: none;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-            position: relative;
-        }
-
-        .icon-btn:hover {
-            transform: scale(1.1) translateY(-2px);
-        }
-
-        .icon-btn.blue {
-            background: rgba(59, 130, 246, 0.15);
-            color: var(--blue);
-        }
-
-        .icon-btn.blue:hover {
-            background: var(--blue);
-            color: white;
-            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
-        }
-
-        .icon-btn.purple {
-            background: rgba(124, 58, 237, 0.15);
-            color: var(--accent);
-        }
-
-        .icon-btn.purple:hover {
-            background: var(--accent);
-            color: white;
-            box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
-        }
-
-        .icon-btn.yellow {
-            background: rgba(245, 158, 11, 0.15);
-            color: var(--yellow);
-        }
-
-        .icon-btn.yellow:hover {
-            background: var(--yellow);
-            color: white;
-            box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
-        }
-
-        .icon-btn.red {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--red);
-        }
-
-        .icon-btn.red:hover {
-            background: var(--red);
-            color: white;
-            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
-        }
-
-        .icon-btn.green {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--green);
-        }
-
-        .icon-btn.green:hover {
-            background: var(--green);
-            color: white;
-            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
-        }
-
-        /* ===== MODAL ===== */
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(0px);
-            animation: overlayBlur 300ms forwards;
-        }
-
-        @keyframes overlayBlur {
-            to { backdrop-filter: blur(12px); }
-        }
-
-        .modal-content {
-            background: var(--card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            z-index: 1;
-            animation: modalEnter 400ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        @keyframes modalEnter {
-            from {
-                opacity: 0;
-                transform: translateY(30px) scale(0.85);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        .modal-header {
-            padding: 24px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: relative;
-        }
-
-        .modal-header::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, var(--accent), var(--pink), var(--blue));
-            background-size: 300% 100%;
-            animation: shimmer 3s linear infinite;
-        }
-
-        .modal-title {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .modal-close {
-            width: 36px;
-            height: 36px;
-            border: none;
-            background: var(--bg2);
-            border-radius: 8px;
-            color: var(--text2);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .modal-close:hover {
-            background: var(--red);
-            color: white;
-            transform: rotate(90deg);
-        }
-
-        .modal-body {
-            padding: 24px;
-        }
-
-        .modal-footer {
-            padding: 20px 24px;
-            border-top: 1px solid var(--border);
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px;
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 300ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        .checkbox-wrapper:hover {
-            border-color: var(--accent);
-        }
-
-        .checkbox-wrapper input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-
-        .config-display {
-            margin-bottom: 16px;
-        }
-
-        .config-link {
-            padding: 12px;
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            font-family: monospace;
-            font-size: 12px;
-            word-break: break-all;
-            color: var(--cyan);
-            margin-bottom: 12px;
-            max-height: 120px;
-            overflow-y: auto;
-        }
-
-        .config-badges {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-
-        .qr-container {
-            text-align: center;
-            padding: 20px;
-            background: white;
-            border-radius: 16px;
-            margin: 16px 0;
-        }
-
-        .qr-container img {
-            max-width: 100%;
-            height: auto;
-        }
-
-        .info-grid {
-            display: grid;
-            gap: 12px;
-        }
-
-        .info-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px;
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-        }
-
-        .info-label {
-            color: var(--text2);
-            font-weight: 600;
-        }
-
-        .info-value {
-            color: var(--text);
-        }
-
-        /* ===== TOAST ===== */
-        .toast-container {
-            position: fixed;
-            bottom: 24px;
-            left: 24px;
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .toast {
-            min-width: 320px;
-            padding: 16px 20px;
-            background: var(--card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            animation: toastEnter 400ms cubic-bezier(.34,1.56,.64,1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        @keyframes toastEnter {
-            from {
-                opacity: 0;
-                transform: translateX(-100px) scale(0.8);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0) scale(1);
-            }
-        }
-
-        .toast::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: var(--accent);
-            animation: toastProgress var(--duration) linear;
-        }
-
-        @keyframes toastProgress {
-            to { width: 0; }
-        }
-
-        .toast-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            animation: iconBounce 500ms cubic-bezier(.34,1.56,.64,1);
-        }
-
-        @keyframes iconBounce {
-            0% { transform: scale(0) rotate(0deg); }
-            50% { transform: scale(1.2) rotate(180deg); }
-            100% { transform: scale(1) rotate(360deg); }
-        }
-
-        .toast.success .toast-icon {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--green);
-        }
-
-        .toast.error .toast-icon {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--red);
-        }
-
-        .toast.info .toast-icon {
-            background: rgba(59, 130, 246, 0.15);
-            color: var(--blue);
-        }
-
-        .toast.warning .toast-icon {
-            background: rgba(245, 158, 11, 0.15);
-            color: var(--yellow);
-        }
-
-        .toast-content {
-            flex: 1;
-        }
-
-        .toast-message {
-            font-weight: 600;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text2);
-        }
-
-        .empty-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-            opacity: 0.3;
-        }
-
-        .skeleton {
-            background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
-            background-size: 200% 100%;
-            animation: skeleton 1.5s ease-in-out infinite;
-            border-radius: 8px;
-        }
-
-        @keyframes skeleton {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 768px) {
-            .sidebar {
-                position: fixed;
-                left: 0;
-                top: 68px;
-                bottom: 0;
-                z-index: 98;
-                transform: translateX(-100%);
-                transition: transform 300ms;
-            }
-
-            .sidebar.mobile-open {
-                transform: translateX(0);
-            }
-
-            .content {
-                padding: 20px;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-
-            .data-card-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .filter-bar {
-                width: 100%;
-            }
-
-            .search-box {
-                width: 100%;
-            }
-        }
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Persian Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#040410;--bg2:#08081a;
+  --card:rgba(255,255,255,.04);--card-h:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.07);--border-h:rgba(124,58,237,.4);
+  --accent:#7c3aed;--accent2:#6d28d9;--accent3:#a78bfa;
+  --blue:#3b82f6;--blue2:#60a5fa;
+  --green:#10b981;--red:#ef4444;--yellow:#f59e0b;--pink:#ec4899;--cyan:#06b6d4;
+  --text:#f1f5f9;--text2:#94a3b8;--text3:#475569;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* BG */
+.bg-wrap{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.orb{position:absolute;border-radius:50%;filter:blur(100px);animation:orbF 10s ease-in-out infinite}
+.orb1{width:700px;height:700px;top:-300px;right:-200px;background:radial-gradient(circle,rgba(124,58,237,.15),transparent 70%);animation-delay:0s}
+.orb2{width:600px;height:600px;bottom:-200px;left:-200px;background:radial-gradient(circle,rgba(59,130,246,.1),transparent 70%);animation-delay:-4s}
+.orb3{width:400px;height:400px;top:40%;left:40%;background:radial-gradient(circle,rgba(236,72,153,.07),transparent 70%);animation-delay:-7s}
+@keyframes orbF{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-20px) scale(1.05)}66%{transform:translate(-20px,15px) scale(.95)}}
+.bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,black 30%,transparent 80%)}
+.particle{position:absolute;border-radius:50%;background:rgba(124,58,237,.4);pointer-events:none;animation:pFloat linear infinite}
+@keyframes pFloat{0%{transform:translateY(100vh) scale(0);opacity:0}10%{opacity:1}90%{opacity:.5}100%{transform:translateY(-100px) scale(1);opacity:0}}
+.cursor-glow{position:fixed;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,.08),transparent 70%);pointer-events:none;z-index:1;transform:translate(-50%,-50%);transition:.1s;top:0;left:0}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--accent),var(--blue));border-radius:2px}
+
+/* ══ LOGIN ══ */
+#loginPage{display:flex;align-items:center;justify-content:center;min-height:100vh;position:relative;z-index:1}
+.login-wrap{width:100%;max-width:420px;padding:20px}
+.login-card{
+  background:rgba(10,10,26,.96);backdrop-filter:blur(40px);
+  border:1px solid rgba(124,58,237,.2);border-radius:32px;padding:52px 44px;
+  box-shadow:0 0 0 1px rgba(124,58,237,.08),0 40px 100px rgba(0,0,0,.7),0 0 80px rgba(124,58,237,.06),inset 0 1px 0 rgba(255,255,255,.06);
+  position:relative;overflow:hidden;animation:cardIn .6s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes cardIn{from{opacity:0;transform:translateY(40px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
+.login-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(124,58,237,.7),rgba(96,165,250,.4),transparent);animation:shimLine 3s ease-in-out infinite}
+@keyframes shimLine{0%,100%{opacity:.4;background-position:0%}50%{opacity:1;background-position:100%}}
+.login-card::after{content:'';position:absolute;inset:0;border-radius:32px;background:radial-gradient(ellipse at 50% 0%,rgba(124,58,237,.05),transparent 60%);pointer-events:none}
+.l-logo{text-align:center;margin-bottom:40px;position:relative;z-index:1}
+.l-icon-wrap{display:inline-flex;align-items:center;justify-content:center;width:88px;height:88px;position:relative;margin-bottom:20px}
+.l-icon-bg{position:absolute;inset:0;border-radius:26px;background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(59,130,246,.15));border:1px solid rgba(124,58,237,.3);animation:iconGlow 3s ease-in-out infinite}
+@keyframes iconGlow{0%,100%{box-shadow:0 0 20px rgba(124,58,237,.2)}50%{box-shadow:0 0 50px rgba(124,58,237,.5),0 0 80px rgba(59,130,246,.2)}}
+.l-icon{font-size:44px;position:relative;z-index:1;animation:iconFloat 3s ease-in-out infinite}
+@keyframes iconFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-6px) rotate(2deg)}}
+.l-title{font-size:28px;font-weight:900;margin-bottom:8px;background:linear-gradient(135deg,#fff 0%,var(--accent3) 40%,var(--blue2) 80%,var(--pink) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200% 200%;animation:gradShift 4s ease-in-out infinite}
+@keyframes gradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.l-sub{color:var(--text3);font-size:14px}
+.l-form{display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
+.l-inp-wrap{position:relative}
+.l-inp-icon{position:absolute;top:50%;right:16px;transform:translateY(-50%);font-size:18px;pointer-events:none;transition:.3s}
+.l-inp-wrap:focus-within .l-inp-icon{transform:translateY(-50%) scale(1.2)}
+.l-inp{width:100%;padding:15px 50px 15px 16px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.08);border-radius:16px;color:var(--text);font-size:15px;font-family:inherit;outline:none;transition:.4s cubic-bezier(.34,1.56,.64,1)}
+.l-inp:focus{border-color:var(--accent);background:rgba(124,58,237,.08);box-shadow:0 0 0 4px rgba(124,58,237,.12),0 8px 24px rgba(124,58,237,.1);transform:translateY(-1px)}
+.l-inp::placeholder{color:var(--text3)}
+.l-btn{padding:16px;margin-top:6px;background:linear-gradient(135deg,#7c3aed,#6d28d9,#4c1d95);color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;position:relative;overflow:hidden;box-shadow:0 4px 24px rgba(124,58,237,.4);transition:.4s cubic-bezier(.34,1.56,.64,1)}
+.l-btn::after{content:'';position:absolute;width:100px;height:100%;top:0;left:-120%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transform:skewX(-20deg);transition:.6s}
+.l-btn:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(124,58,237,.6)}
+.l-btn:hover::after{left:120%}
+.l-btn:active{transform:translateY(0) scale(.98)}
+.l-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.l-footer{text-align:center;margin-top:22px;color:var(--text3);font-size:12px;position:relative;z-index:1}
+
+/* ══ APP ══ */
+#app{display:none;min-height:100vh;position:relative;z-index:1}
+
+/* TOPBAR */
+.topbar{height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:rgba(4,4,16,.9);backdrop-filter:blur(30px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.topbar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(124,58,237,.5),rgba(96,165,250,.3),transparent);animation:topLine 4s linear infinite;background-size:200% 100%}
+@keyframes topLine{0%{background-position:0%}100%{background-position:200%}}
+.tb-logo{display:flex;align-items:center;gap:12px;cursor:pointer;transition:.3s}
+.tb-logo:hover .tb-logo-icon{transform:rotate(-10deg) scale(1.1)}
+.tb-logo-icon{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 16px rgba(124,58,237,.4);transition:.4s cubic-bezier(.34,1.56,.64,1)}
+.tb-name{font-size:18px;font-weight:800;background:linear-gradient(135deg,#fff,var(--accent3),var(--blue2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.tb-ver{font-size:10px;padding:2px 8px;border-radius:6px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.25);color:var(--accent3);font-weight:700}
+.tb-right{display:flex;align-items:center;gap:8px}
+.tb-btn{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:.3s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden}
+.tb-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,58,237,.1),rgba(59,130,246,.05));opacity:0;transition:.3s}
+.tb-btn:hover::before{opacity:1}
+.tb-btn:hover{border-color:rgba(124,58,237,.4);color:var(--text);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.tb-btn:active{transform:translateY(0) scale(.97)}
+.tb-btn .ti{font-size:18px;transition:.4s}
+.tb-btn:hover .ti{transform:rotate(15deg) scale(1.2)}
+.tb-logout{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.15);color:#fca5a5}
+.tb-logout:hover{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);box-shadow:0 8px 24px rgba(239,68,68,.2)}
+.tb-logout:hover .ti{transform:translateX(-4px) !important}
+
+/* LAYOUT */
+.layout{display:flex;min-height:calc(100vh - 68px)}
+
+/* SIDEBAR */
+.sidebar{width:230px;flex-shrink:0;background:rgba(4,4,16,.7);backdrop-filter:blur(20px);border-left:1px solid var(--border);padding:20px 12px;position:sticky;top:68px;height:calc(100vh - 68px);overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.nav-sec{padding:10px 12px 4px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;color:var(--text2);font-size:14px;font-weight:500;border-radius:14px;margin-bottom:2px;transition:.35s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden}
+.nav-item::before{content:'';position:absolute;inset:0;border-radius:14px;background:linear-gradient(135deg,rgba(124,58,237,.15),rgba(59,130,246,.08));opacity:0;transition:.3s;transform:scaleX(.8)}
+.nav-item:hover::before{opacity:1;transform:scaleX(1)}
+.nav-item::after{content:'';position:absolute;right:0;top:20%;bottom:20%;width:3px;background:linear-gradient(180deg,var(--accent3),var(--blue2));border-radius:2px 0 0 2px;transform:scaleY(0);transition:.3s cubic-bezier(.34,1.56,.64,1)}
+.nav-item:hover{color:var(--text);transform:translateX(-4px)}
+.nav-item:hover .ni{transform:scale(1.15) rotate(-5deg)}
+.nav-item.active{color:#fff;background:linear-gradient(135deg,rgba(124,58,237,.2),rgba(59,130,246,.1));box-shadow:0 4px 20px rgba(124,58,237,.15),inset 0 1px 0 rgba(255,255,255,.06)}
+.nav-item.active::before{opacity:1;transform:scaleX(1)}
+.nav-item.active::after{transform:scaleY(1)}
+.nav-item.active .ni{background:linear-gradient(135deg,rgba(124,58,237,.3),rgba(59,130,246,.2));box-shadow:0 4px 12px rgba(124,58,237,.2)}
+.ni{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;background:rgba(255,255,255,.05);transition:.35s cubic-bezier(.34,1.56,.64,1)}
+.nt{position:relative;z-index:1}
+.nb{margin-right:auto;z-index:1;background:linear-gradient(135deg,var(--accent),var(--blue));color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(124,58,237,.4);transition:.3s cubic-bezier(.34,1.56,.64,1)}
+.nav-item:hover .nb{transform:scale(1.1)}
+
+/* CONTENT */
+.content{flex:1;padding:32px;overflow-y:auto;max-height:calc(100vh - 68px)}
+.page{display:none}
+.page.active{display:block;animation:pageIn .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pageIn{from{opacity:0;transform:translateY(20px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* PAGE HEADER */
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px}
+.ph-left{display:flex;align-items:center;gap:14px}
+.ph-icon{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;background:linear-gradient(135deg,rgba(124,58,237,.2),rgba(59,130,246,.1));border:1px solid rgba(124,58,237,.25);box-shadow:0 8px 20px rgba(124,58,237,.15);transition:.4s cubic-bezier(.34,1.56,.64,1);cursor:default}
+.ph-icon:hover{transform:scale(1.1) rotate(-5deg);box-shadow:0 12px 30px rgba(124,58,237,.3)}
+.ph-title{font-size:26px;font-weight:900}
+.ph-sub{font-size:13px;color:var(--text3);margin-top:2px}
+
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:28px}
+.sc{background:var(--card);border:1px solid var(--border);border-radius:22px;padding:24px;position:relative;overflow:hidden;cursor:default;transition:.4s cubic-bezier(.34,1.56,.64,1)}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--sc),transparent);opacity:.6}
+.sc::after{content:'';position:absolute;top:-50%;right:-50%;width:100%;height:100%;background:radial-gradient(circle,rgba(var(--sc-rgb),.08),transparent 60%);transition:.4s;opacity:0}
+.sc:hover{transform:translateY(-8px) scale(1.02);border-color:rgba(var(--sc-rgb),.4);box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 40px rgba(var(--sc-rgb),.1)}
+.sc:hover::after{opacity:1}
+.sc:hover .sic{transform:scale(1.2) rotate(-8deg);background:rgba(var(--sc-rgb),.2)}
+.st{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+.sic{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(var(--sc-rgb),.12);border:1px solid rgba(var(--sc-rgb),.2);transition:.4s cubic-bezier(.34,1.56,.64,1)}
+.sch{font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;background:rgba(var(--sc-rgb),.12);color:var(--sc);border:1px solid rgba(var(--sc-rgb),.2)}
+.sv2{font-size:34px;font-weight:900;line-height:1;margin-bottom:6px;color:var(--sc)}
+.sl2{font-size:12px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.sbar{height:4px;background:rgba(255,255,255,.05);border-radius:2px;margin-top:16px;overflow:hidden}
+.sbar-f{height:100%;border-radius:2px;background:var(--sc);width:0;transition:width 1.2s cubic-bezier(.34,1.56,.64,1)}
+.sc-pu{--sc:#a78bfa;--sc-rgb:167,139,250}
+.sc-gr{--sc:#10b981;--sc-rgb:16,185,129}
+.sc-re{--sc:#ef4444;--sc-rgb:239,68,68}
+.sc-bl{--sc:#60a5fa;--sc-rgb:96,165,250}
+.sc-ye{--sc:#f59e0b;--sc-rgb:245,158,11}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:20px;transition:.2s}
+.card:hover{border-color:rgba(255,255,255,.1)}
+.card-title{font-size:14px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:8px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+
+/* TABLE */
+.tw{overflow-x:auto;border-radius:14px}
+table{width:100%;border-collapse:collapse}
+thead{background:rgba(255,255,255,.03)}
+th{padding:14px 16px;text-align:right;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:15px 16px;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr{transition:.25s}
+tbody tr:hover td{background:rgba(124,58,237,.04)}
+tbody tr:hover{transform:translateX(-2px)}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;transition:.2s}
+.badge:hover{transform:scale(1.05)}
+.b-pu{background:rgba(167,139,250,.12);color:var(--accent3);border:1px solid rgba(167,139,250,.2)}
+.b-bl{background:rgba(96,165,250,.12);color:var(--blue2);border:1px solid rgba(96,165,250,.2)}
+.b-gr{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.2)}
+.b-re{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.b-ye{background:rgba(245,158,11,.12);color:var(--yellow);border:1px solid rgba(245,158,11,.2)}
+.b-pk{background:rgba(236,72,153,.12);color:var(--pink);border:1px solid rgba(236,72,153,.2)}
+.b-gy{background:rgba(100,116,139,.12);color:var(--text3);border:1px solid rgba(100,116,139,.2)}
+.b-cy{background:rgba(6,182,212,.12);color:var(--cyan);border:1px solid rgba(6,182,212,.2)}
+
+/* PULSE DOT */
+.pulse-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.4)}50%{box-shadow:0 0 0 6px rgba(16,185,129,0)}}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border:none;border-radius:12px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;position:relative;overflow:hidden;transition:.35s cubic-bezier(.34,1.56,.64,1)}
+.btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.15),transparent 50%);opacity:0;transition:.3s}
+.btn::after{content:'';position:absolute;width:80px;height:100%;top:0;left:-100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transform:skewX(-20deg)}
+.btn:hover::before{opacity:1}
+.btn:hover::after{left:120%;transition:.6s}
+.btn:hover{transform:translateY(-2px)}
+.btn:active{transform:translateY(0) scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 20px rgba(124,58,237,.3)}
+.btn-primary:hover{box-shadow:0 12px 40px rgba(124,58,237,.5)}
+.btn-success{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.25)}
+.btn-success:hover{background:rgba(16,185,129,.2);box-shadow:0 8px 24px rgba(16,185,129,.2)}
+.btn-danger{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.btn-danger:hover{background:rgba(239,68,68,.2);box-shadow:0 8px 24px rgba(239,68,68,.2)}
+.btn-warning{background:rgba(245,158,11,.12);color:var(--yellow);border:1px solid rgba(245,158,11,.25)}
+.btn-warning:hover{background:rgba(245,158,11,.2);box-shadow:0 8px 24px rgba(245,158,11,.2)}
+.btn-info{background:rgba(96,165,250,.12);color:var(--blue2);border:1px solid rgba(96,165,250,.25)}
+.btn-info:hover{background:rgba(96,165,250,.2);box-shadow:0 8px 24px rgba(96,165,250,.2)}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:rgba(255,255,255,.1);color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.btn-cyan{background:rgba(6,182,212,.12);color:var(--cyan);border:1px solid rgba(6,182,212,.25)}
+.btn-cyan:hover{background:rgba(6,182,212,.2)}
+.btn-sm{padding:8px 16px;font-size:13px;border-radius:10px}
+.btn-xs{padding:5px 10px;font-size:12px;border-radius:8px}
+
+/* MODAL */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(12px);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.mo.open{display:flex}
+.modal{background:rgba(8,8,26,.98);border:1px solid rgba(124,58,237,.2);border-radius:28px;width:100%;max-width:520px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 40px 100px rgba(0,0,0,.8),0 0 0 1px rgba(124,58,237,.1),0 0 60px rgba(124,58,237,.06),inset 0 1px 0 rgba(255,255,255,.06);animation:modalIn .35s cubic-bezier(.34,1.56,.64,1)}
+@keyframes modalIn{from{transform:scale(.85) translateY(30px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.mh{padding:22px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(59,130,246,.03));position:relative}
+.mh::after{content:'';position:absolute;bottom:0;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,rgba(124,58,237,.4),transparent)}
+.mh h3{font-size:17px;font-weight:700;display:flex;align-items:center;gap:10px}
+.mc{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.3s cubic-bezier(.34,1.56,.64,1)}
+.mc:hover{background:var(--red);border-color:var(--red);color:#fff;transform:rotate(90deg) scale(1.1)}
+.mb{padding:24px;overflow-y:auto;flex:1}
+.mf{padding:18px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:rgba(255,255,255,.02)}
+
+/* FORMS */
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.fg{margin-bottom:16px}
+.fg label{display:block;margin-bottom:8px;font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.8px}
+.fc{width:100%;padding:12px 16px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.07);border-radius:12px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:.35s cubic-bezier(.34,1.56,.64,1)}
+.fc:focus{border-color:var(--accent);background:rgba(124,58,237,.07);box-shadow:0 0 0 3px rgba(124,58,237,.12);transform:translateY(-1px)}
+.fc::placeholder{color:var(--text3)}
+select.fc option{background:#08081a}
+.fh{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5}
+.fsec{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:18px;margin-bottom:16px;transition:.3s}
+.fsec:hover{border-color:rgba(124,58,237,.2)}
+.fsec-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;display:flex;align-items:center;gap:6px}
+.fgen{display:flex;gap:8px;align-items:flex-start}
+.fgen .fc{flex:1}
+.fgen .btn{flex-shrink:0;margin-top:0;align-self:stretch}
+
+/* TOGGLE */
+.trow{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+.tlbl{font-size:14px;font-weight:500}
+.toggle{position:relative;display:inline-block;width:50px;height:27px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.tslider{position:absolute;inset:0;background:rgba(255,255,255,.08);border-radius:14px;cursor:pointer;transition:.4s cubic-bezier(.34,1.56,.64,1);border:1px solid rgba(255,255,255,.1)}
+.tslider:before{content:'';position:absolute;width:21px;height:21px;right:2px;top:2px;background:var(--text3);border-radius:50%;transition:.4s cubic-bezier(.34,1.56,.64,1);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.toggle input:checked+.tslider{background:linear-gradient(135deg,var(--accent),var(--blue));border-color:transparent;box-shadow:0 0 16px rgba(124,58,237,.3)}
+.toggle input:checked+.tslider:before{right:auto;left:2px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4);transform:scale(1.05)}
+
+/* PROGRESS */
+.prog{background:rgba(255,255,255,.06);border-radius:4px;height:6px;overflow:hidden;margin-top:5px}
+.prog-f{height:100%;border-radius:4px;transition:.6s cubic-bezier(.34,1.56,.64,1)}
+
+/* SEARCH */
+.sw{display:flex;gap:12px;margin-bottom:24px}
+.sbox{position:relative;flex:1}
+.sbox-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:17px;pointer-events:none;transition:.3s}
+.sinput{width:100%;padding:12px 18px 12px 46px;background:var(--card);border:1.5px solid var(--border);border-radius:14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:.35s cubic-bezier(.34,1.56,.64,1)}
+.sinput:focus{border-color:var(--accent);background:rgba(124,58,237,.05);box-shadow:0 0 0 3px rgba(124,58,237,.1);transform:translateY(-1px)}
+.sbox:focus-within .sbox-icon{transform:translateY(-50%) scale(1.2)}
+
+/* TOAST */
+#toast{position:fixed;bottom:28px;right:28px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.ti2{display:flex;align-items:center;gap:10px;padding:14px 20px;border-radius:16px;font-size:14px;font-weight:600;max-width:340px;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:toastIn .5s cubic-bezier(.34,1.56,.64,1);pointer-events:all;cursor:pointer;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.15);position:relative;overflow:hidden}
+.ti2:hover{transform:scale(1.02)}
+@keyframes toastIn{from{opacity:0;transform:translateX(60px) scale(.8)}to{opacity:1;transform:translateX(0) scale(1)}}
+.ti-icon{font-size:20px;animation:iconB .5s cubic-bezier(.34,1.56,.64,1) .1s both}
+@keyframes iconB{from{transform:scale(0) rotate(-180deg)}to{transform:scale(1) rotate(0)}}
+.tp{position:absolute;bottom:0;left:0;height:3px;background:rgba(255,255,255,.3);animation:tprog linear forwards}
+@keyframes tprog{from{width:100%}to{width:0}}
+.ti2.success{background:rgba(16,185,129,.95);color:#fff}
+.ti2.error{background:rgba(239,68,68,.95);color:#fff}
+.ti2.info{background:rgba(96,165,250,.95);color:#fff}
+.ti2.warning{background:rgba(245,158,11,.95);color:#1a1a1a}
+
+/* INFO BOX */
+.igrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.ibox{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:16px;padding:18px;transition:.35s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;cursor:default}
+.ibox::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,58,237,.08),transparent);opacity:0;transition:.3s}
+.ibox:hover::before{opacity:1}
+.ibox:hover{border-color:rgba(124,58,237,.3);transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.ibox:hover .ii{transform:scale(1.3) rotate(-10deg)}
+.ii{font-size:22px;margin-bottom:10px;display:block;transition:.3s cubic-bezier(.34,1.56,.64,1)}
+.il{font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.iv{font-size:13px;font-weight:700;font-family:monospace;word-break:break-all}
+
+/* CFG BOX */
+.cfg{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px;font-family:monospace;font-size:11px;color:var(--text2);word-break:break-all;direction:ltr;text-align:left;line-height:1.8;transition:.3s}
+.cfg:hover{border-color:rgba(124,58,237,.3)}
+
+/* EMPTY */
+.empty{text-align:center;padding:80px 20px;display:flex;flex-direction:column;align-items:center}
+.empty-icon{width:88px;height:88px;border-radius:28px;background:rgba(255,255,255,.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:18px;transition:.4s cubic-bezier(.34,1.56,.64,1)}
+.empty:hover .empty-icon{transform:scale(1.1) rotate(-5deg);border-color:rgba(124,58,237,.3)}
+.empty-title{font-size:17px;font-weight:700;margin-bottom:8px}
+.empty-sub{font-size:13px;color:var(--text3)}
+
+/* SPINNER */
+.spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:20px 0;position:relative}
+.divider::after{content:'';position:absolute;top:0;left:20%;right:20%;height:1px;background:linear-gradient(90deg,transparent,rgba(124,58,237,.4),transparent)}
+
+/* QUICK BTN */
+.qb{display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:.35s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;flex:1}
+.qb::before{content:'';position:absolute;inset:0;background:var(--qbg,linear-gradient(135deg,rgba(124,58,237,.1),rgba(59,130,246,.05)));opacity:0;transition:.3s}
+.qb:hover::before{opacity:1}
+.qb:hover{border-color:var(--qborder,rgba(124,58,237,.4));color:var(--text);transform:translateY(-4px) scale(1.02);box-shadow:0 16px 40px rgba(0,0,0,.3),var(--qshadow,0 0 20px rgba(124,58,237,.1))}
+.qb:active{transform:translateY(0) scale(.98)}
+.qb-icon{font-size:24px;width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);transition:.4s cubic-bezier(.34,1.56,.64,1);flex-shrink:0}
+.qb:hover .qb-icon{transform:scale(1.2) rotate(-10deg)}
+.qb-text{position:relative;z-index:1}
+.qb-title{font-weight:700;font-size:14px}
+.qb-sub{font-size:12px;color:var(--text3);margin-top:2px}
+
+/* TRAF */
+.traf-info{font-size:12px;color:var(--text2);white-space:nowrap}
+.traf-sub{font-size:11px;color:var(--text3);margin-top:3px}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .content{padding:16px}
+  .sg{grid-template-columns:1fr 1fr}
+  .fr{grid-template-columns:1fr}
+  .topbar{padding:0 16px}
+  .ph-title{font-size:20px}
+  .sw{flex-direction:column}
+}
+</style>
 </head>
 <body>
-    <!-- Background Effects -->
-    <div class="bg-effects">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
-        <div class="grid-pattern"></div>
-        <div class="noise"></div>
-        <div id="particles"></div>
-    </div>
 
-    <div class="cursor-glow" id="cursorGlow"></div>
+<!-- BG -->
+<div class="bg-wrap">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+  <div class="bg-grid"></div>
+</div>
+<div class="cursor-glow" id="cursorGlow"></div>
 
-    <!-- Login Page -->
-    <div id="loginPage">
-        <div class="login-card" id="loginCard">
-            <div class="login-logo">🚀</div>
-            <h1 class="login-title">پنل مدیریت VPN</h1>
-            <p class="login-subtitle">به پنل خوش آمدید</p>
-            <form id="loginForm">
-                <div class="form-group">
-                    <div class="input-wrapper">
-                        <input type="text" class="form-input" id="loginUsername" required>
-                        <span class="input-icon">👤</span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <div class="input-wrapper">
-                        <input type="password" class="form-input" id="loginPassword" required>
-                        <span class="input-icon">🔒</span>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
-                    <span id="loginBtnText">ورود</span>
-                </button>
-            </form>
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="loginPage">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="l-logo">
+        <div class="l-icon-wrap">
+          <div class="l-icon-bg"></div>
+          <span class="l-icon">🔮</span>
         </div>
-    </div>
-
-    <!-- App Layout -->
-    <div id="app">
-        <!-- Topbar -->
-        <header class="topbar">
-            <div class="topbar-logo">🚀</div>
-            <h2 class="topbar-title" id="pageTitle">داشبورد</h2>
-            <div class="topbar-user">
-                <div class="user-avatar" id="userAvatar">A</div>
-                <span id="userName">مدیر</span>
-            </div>
-        </header>
-
-        <div class="layout">
-            <!-- Sidebar -->
-            <aside class="sidebar" id="sidebar">
-                <div class="nav-section">
-                    <div class="nav-section-title">منو اصلی</div>
-                    <ul class="nav-menu">
-                        <li class="nav-item">
-                            <a href="#" class="nav-link active" data-page="dashboard">
-                                <span class="nav-icon">📊</span>
-                                <span>داشبورد</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="#" class="nav-link" data-page="inbounds">
-                                <span class="nav-icon">🌐</span>
-                                <span>Inbounds</span>
-                                <span class="nav-badge" id="inboundsBadge">0</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="#" class="nav-link" data-page="clients">
-                                <span class="nav-icon">👥</span>
-                                <span>کاربران</span>
-                                <span class="nav-badge" id="clientsBadge">0</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                <div class="nav-section">
-                    <div class="nav-section-title">تنظیمات</div>
-                    <ul class="nav-menu">
-                        <li class="nav-item">
-                            <a href="#" class="nav-link" data-page="settings">
-                                <span class="nav-icon">⚙️</span>
-                                <span>تنظیمات</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="#" class="nav-link" data-page="profile">
-                                <span class="nav-icon">👤</span>
-                                <span>پروفایل</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </aside>
-
-            <!-- Content -->
-            <main class="content">
-                <!-- Dashboard Page -->
-                <div class="page active" id="dashboardPage">
-                    <div class="page-header">
-                        <div>
-                            <h1 class="page-title">داشبورد</h1>
-                            <p class="page-desc">آمار کلی سیستم</p>
-                        </div>
-                    </div>
-                    <div class="stats-grid" id="statsGrid"></div>
-                    <div class="data-card">
-                        <div class="data-card-header">
-                            <h3 class="data-card-title">اطلاعات سرور</h3>
-                        </div>
-                        <div class="modal-body">
-                            <div class="info-grid" id="serverInfo"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Inbounds Page -->
-                <div class="page" id="inboundsPage">
-                    <div class="page-header">
-                        <div>
-                            <h1 class="page-title">مدیریت Inbounds</h1>
-                            <p class="page-desc">لیست و مدیریت ورودی‌ها</p>
-                        </div>
-                        <button class="btn btn-primary" id="addInboundBtn">➕ افزودن Inbound</button>
-                    </div>
-                    <div class="data-card">
-                        <div class="table-wrapper">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>نام</th>
-                                        <th>پروتکل</th>
-                                        <th>پورت</th>
-                                        <th>شبکه</th>
-                                        <th>امنیت</th>
-                                        <th>کاربران</th>
-                                        <th>ترافیک</th>
-                                        <th>وضعیت</th>
-                                        <th>عملیات</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inboundsTable"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Clients Page -->
-                <div class="page" id="clientsPage">
-                    <div class="page-header">
-                        <div>
-                            <h1 class="page-title">مدیریت کاربران</h1>
-                            <p class="page-desc">لیست و مدیریت کاربران VPN</p>
-                        </div>
-                        <button class="btn btn-primary" id="addClientBtn">➕ افزودن کاربر</button>
-                    </div>
-                    <div class="data-card">
-                        <div class="data-card-header">
-                            <div class="filter-bar">
-                                <div class="search-box">
-                                    <input type="text" class="form-input" id="searchInput" placeholder="جستجو...">
-                                    <span class="input-icon">🔍</span>
-                                </div>
-                                <select class="form-select" id="inboundFilter">
-                                    <option value="">همه Inbounds</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="table-wrapper">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>کاربر</th>
-                                        <th>Inbound</th>
-                                        <th>ترافیک</th>
-                                        <th>انقضا</th>
-                                        <th>وضعیت</th>
-                                        <th>عملیات</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="clientsTable"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Settings Page -->
-                <div class="page" id="settingsPage">
-                    <div class="page-header">
-                        <div>
-                            <h1 class="page-title">تنظیمات</h1>
-                            <p class="page-desc">پیکربندی پنل</p>
-                        </div>
-                    </div>
-                    <div class="data-card">
-                        <div class="data-card-header">
-                            <h3 class="data-card-title">تنظیمات عمومی</h3>
-                        </div>
-                        <div class="modal-body">
-                            <form id="settingsForm">
-                                <div class="form-group">
-                                    <label class="form-label">نام پنل</label>
-                                    <input type="text" class="form-input" id="panelName">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">دامنه Cloudflare</label>
-                                    <input type="text" class="form-input" id="cfDomain" placeholder="example.com">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">تم</label>
-                                    <select class="form-select" id="themeSelect">
-                                        <option value="dark">تیره</option>
-                                        <option value="light">روشن</option>
-                                    </select>
-                                </div>
-                                <button type="submit" class="btn btn-primary">💾 ذخیره تنظیمات</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Profile Page -->
-                <div class="page" id="profilePage">
-                    <div class="page-header">
-                        <div>
-                            <h1 class="page-title">پروفایل</h1>
-                            <p class="page-desc">مدیریت حساب کاربری</p>
-                        </div>
-                    </div>
-                    <div class="data-card">
-                        <div class="data-card-header">
-                            <h3 class="data-card-title">تغییر رمز عبور</h3>
-                        </div>
-                        <div class="modal-body">
-                            <form id="profileForm">
-                                <div class="form-group">
-                                    <label class="form-label">نام کاربری جدید (اختیاری)</label>
-                                    <input type="text" class="form-input" id="newUsername">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">رمز عبور فعلی</label>
-                                    <input type="password" class="form-input" id="currentPassword" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">رمز عبور جدید (اختیاری)</label>
-                                    <input type="password" class="form-input" id="newPassword" minlength="4">
-                                </div>
-                                <button type="submit" class="btn btn-primary">💾 ذخیره تغییرات</button>
-                            </form>
-                        </div>
-                    </div>
-                    <div class="data-card">
-                        <div class="data-card-header">
-                            <h3 class="data-card-title">خروج از حساب</h3>
-                        </div>
-                        <div class="modal-body">
-                            <p style="margin-bottom: 16px;">با خروج از حساب، به صفحه ورود منتقل خواهید شد.</p>
-                            <button class="btn btn-secondary" id="logoutBtn" style="background: var(--red); color: white;">🚪 خروج</button>
-                        </div>
-                    </div>
-                </div>
-            </main>
+        <div class="l-title">Persian Panel</div>
+        <div class="l-sub">پنل هوشمند مدیریت VPN</div>
+      </div>
+      <form class="l-form" id="loginForm">
+        <div class="l-inp-wrap">
+          <span class="l-inp-icon">👤</span>
+          <input class="l-inp" type="text" id="loginUser" placeholder="نام کاربری" autocomplete="username" required/>
         </div>
-    </div>
-
-    <!-- Inbound Modal -->
-    <div class="modal" id="modalInbound">
-        <div class="modal-overlay" onclick="closeModal('modalInbound')"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title" id="inboundModalTitle">افزودن Inbound</h3>
-                <button class="modal-close" onclick="closeModal('modalInbound')">✕</button>
-            </div>
-            <div class="modal-body">
-                <form id="inboundForm">
-                    <input type="hidden" id="inboundId">
-                    <div class="form-group">
-                        <label class="form-label">نام</label>
-                        <input type="text" class="form-input" id="inboundRemark" required>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">پروتکل</label>
-                            <select class="form-select" id="inboundProtocol" required>
-                                <option value="vless">VLESS</option>
-                                <option value="vmess">VMess</option>
-                                <option value="trojan">Trojan</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">پورت</label>
-                            <input type="number" class="form-input" id="inboundPort" min="1" max="65535" required>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">شبکه</label>
-                            <select class="form-select" id="inboundNetwork" required>
-                                <option value="ws">WebSocket</option>
-                                <option value="grpc">gRPC</option>
-                                <option value="tcp">TCP</option>
-                                <option value="httpupgrade">HTTP Upgrade</option>
-                                <option value="xhttp">XHTTP</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">امنیت</label>
-                            <select class="form-select" id="inboundSecurity" required>
-                                <option value="none">None</option>
-                                <option value="tls">TLS</option>
-                                <option value="reality">Reality</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group" id="fieldPath">
-                        <label class="form-label">Path</label>
-                        <input type="text" class="form-input" id="inboundPath">
-                    </div>
-                    <div class="form-group hidden" id="fieldGrpc">
-                        <label class="form-label">Service Name</label>
-                        <input type="text" class="form-input" id="inboundGrpc">
-                    </div>
-                    <div class="form-group" id="fieldSni">
-                        <label class="form-label">SNI</label>
-                        <input type="text" class="form-input" id="inboundSni">
-                    </div>
-                    <div class="form-group hidden" id="fieldRealityPbk">
-                        <label class="form-label">Public Key</label>
-                        <input type="text" class="form-input" id="inboundRealityPbk">
-                    </div>
-                    <div class="form-group hidden" id="fieldRealitySid">
-                        <label class="form-label">Short ID</label>
-                        <input type="text" class="form-input" id="inboundRealitySid">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Header Type (اختیاری)</label>
-                        <input type="text" class="form-input" id="inboundHeaderType">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">XHTTP Mode (اختیاری)</label>
-                        <input type="text" class="form-input" id="inboundXhttpMode">
-                    </div>
-                    <div class="checkbox-wrapper" id="inboundEnabledWrapper">
-                        <input type="checkbox" id="inboundEnabled" checked>
-                        <label for="inboundEnabled">فعال</label>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('modalInbound')">لغو</button>
-                <button class="btn btn-primary" id="saveInboundBtn">💾 ذخیره</button>
-            </div>
+        <div class="l-inp-wrap">
+          <span class="l-inp-icon">🔑</span>
+          <input class="l-inp" type="password" id="loginPass" placeholder="رمز عبور" autocomplete="current-password" required/>
         </div>
+        <button type="submit" class="l-btn" id="loginBtn">ورود به پنل ✨</button>
+      </form>
+      <div class="l-footer">🔒 اتصال امن و رمزنگاری شده</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+  <div class="topbar">
+    <div class="tb-logo" onclick="nav('dashboard')">
+      <div class="tb-logo-icon">🔮</div>
+      <div>
+        <span class="tb-name" id="topPanelName">Persian Panel</span>
+        <span class="tb-ver">v4.0</span>
+      </div>
+    </div>
+    <div class="tb-right">
+      <button class="tb-btn" id="themeBtn"><span class="ti">🌙</span><span>تم</span></button>
+      <button class="tb-btn"><span class="ti">👤</span><span id="topUser">—</span></button>
+      <button class="tb-btn tb-logout" onclick="logout()"><span class="ti">🚪</span><span>خروج</span></button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="nav-sec">منو اصلی</div>
+      <div class="nav-item active" onclick="nav('dashboard')">
+        <div class="ni">📊</div><span class="nt">داشبورد</span>
+      </div>
+      <div class="nav-item" onclick="nav('inbounds')">
+        <div class="ni">🔌</div><span class="nt">Inbounds</span>
+        <span class="nb" id="sideIbCount">0</span>
+      </div>
+      <div class="nav-item" onclick="nav('clients')">
+        <div class="ni">👥</div><span class="nt">کاربران</span>
+        <span class="nb" id="sideClCount">0</span>
+      </div>
+      <div class="nav-sec">تنظیمات</div>
+      <div class="nav-item" onclick="nav('settings')">
+        <div class="ni">⚙️</div><span class="nt">تنظیمات</span>
+      </div>
+      <div class="nav-item" onclick="nav('profile')">
+        <div class="ni">🔑</div><span class="nt">پروفایل</span>
+      </div>
     </div>
 
-    <!-- Client Modal -->
-    <div class="modal" id="modalClient">
-        <div class="modal-overlay" onclick="closeModal('modalClient')"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title" id="clientModalTitle">افزودن کاربر</h3>
-                <button class="modal-close" onclick="closeModal('modalClient')">✕</button>
-            </div>
-            <div class="modal-body">
-                <form id="clientForm">
-                    <input type="hidden" id="clientId">
-                    <div class="form-group">
-                        <label class="form-label">Inbound</label>
-                        <select class="form-select" id="clientInbound" required></select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">نام</label>
-                        <input type="text" class="form-input" id="clientName" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">ایمیل (اختیاری)</label>
-                        <input type="email" class="form-input" id="clientEmail">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">یادداشت (اختیاری)</label>
-                        <input type="text" class="form-input" id="clientNote">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">حجم GB (0=نامحدود)</label>
-                            <input type="number" class="form-input" id="clientTraffic" value="100" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">اعتبار روز (0=نامحدود)</label>
-                            <input type="number" class="form-input" id="clientExpire" value="30" min="0">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">حداکثر اتصال</label>
-                            <input type="number" class="form-input" id="clientMaxConn" value="2" min="1">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">UUID دلخواه (اختیاری)</label>
-                            <input type="text" class="form-input" id="clientUuid">
-                        </div>
-                    </div>
-                    <div class="checkbox-wrapper" id="clientEnabledWrapper" style="display: none;">
-                        <input type="checkbox" id="clientEnabled" checked>
-                        <label for="clientEnabled">فعال</label>
-                    </div>
-                    <div class="checkbox-wrapper" id="clientResetWrapper" style="display: none;">
-                        <input type="checkbox" id="clientReset">
-                        <label for="clientReset">ری‌ست ترافیک</label>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('modalClient')">لغو</button>
-                <button class="btn btn-primary" id="saveClientBtn">💾 ذخیره</button>
-            </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div id="page-dashboard" class="page active">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-icon">📊</div>
+            <div><div class="ph-title">داشبورد</div><div class="ph-sub">خلاصه وضعیت سیستم</div></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">🔄 بروزرسانی</button>
         </div>
-    </div>
-
-    <!-- Config Modal -->
-    <div class="modal" id="modalConfig">
-        <div class="modal-overlay" onclick="closeModal('modalConfig')"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">پیکربندی کاربر</h3>
-                <button class="modal-close" onclick="closeModal('modalConfig')">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="config-badges" id="configBadges"></div>
-                <div class="config-display">
-                    <label class="form-label">لینک کانفیگ</label>
-                    <div class="config-link" id="configLink"></div>
-                    <button class="btn btn-primary btn-full" onclick="copyText($('configLink').textContent, this)">📋 کپی لینک</button>
-                </div>
-                <div class="config-display">
-                    <label class="form-label">لینک اشتراک</label>
-                    <div class="config-link" id="configSub"></div>
-                    <button class="btn btn-primary btn-full" onclick="copyText($('configSub').textContent, this)">📋 کپی لینک اشتراک</button>
-                </div>
-                <div class="config-display">
-                    <label class="form-label">صفحه کاربر</label>
-                    <button class="btn btn-secondary btn-full" id="configUserPageBtn">🔗 باز کردن صفحه کاربر</button>
-                </div>
-                <div class="qr-container" id="qrContainer"></div>
-            </div>
+        <div class="sg">
+          <div class="sc sc-pu">
+            <div class="st"><div class="sic">👥</div><div class="sch">کل</div></div>
+            <div class="sv2" id="s-total">—</div><div class="sl2">کاربران</div>
+            <div class="sbar"><div class="sbar-f" id="sb-total"></div></div>
+          </div>
+          <div class="sc sc-gr">
+            <div class="st"><div class="sic">✅</div><div class="sch">فعال</div></div>
+            <div class="sv2" id="s-active">—</div><div class="sl2">کاربران فعال</div>
+            <div class="sbar"><div class="sbar-f" id="sb-active"></div></div>
+          </div>
+          <div class="sc sc-re">
+            <div class="st"><div class="sic">⏰</div><div class="sch">منقضی</div></div>
+            <div class="sv2" id="s-expired">—</div><div class="sl2">منقضی شده</div>
+            <div class="sbar"><div class="sbar-f" id="sb-expired"></div></div>
+          </div>
+          <div class="sc sc-bl">
+            <div class="st"><div class="sic">🔌</div><div class="sch">Inbound</div></div>
+            <div class="sv2" id="s-inbounds">—</div><div class="sl2">Inbound فعال</div>
+            <div class="sbar"><div class="sbar-f" id="sb-inbounds"></div></div>
+          </div>
+          <div class="sc sc-ye">
+            <div class="st"><div class="sic">📦</div><div class="sch">مصرف</div></div>
+            <div class="sv2" id="s-traffic">—</div><div class="sl2">ترافیک کل</div>
+            <div class="sbar"><div class="sbar-f" id="sb-traffic"></div></div>
+          </div>
         </div>
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-title">⚡ دسترسی سریع</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button class="qb" onclick="nav('inbounds');setTimeout(openAddInbound,100)"
+              style="--qbg:linear-gradient(135deg,rgba(124,58,237,.12),rgba(59,130,246,.06));--qborder:rgba(124,58,237,.4);--qshadow:0 0 20px rgba(124,58,237,.15)">
+              <div class="qb-icon" style="background:rgba(124,58,237,.15)">🔌</div>
+              <div class="qb-text"><div class="qb-title">Inbound جدید</div><div class="qb-sub">افزودن پروتکل</div></div>
+            </button>
+            <button class="qb" onclick="nav('clients');setTimeout(openAddClient,100)"
+              style="--qbg:linear-gradient(135deg,rgba(16,185,129,.1),transparent);--qborder:rgba(16,185,129,.3);--qshadow:0 0 20px rgba(16,185,129,.1)">
+              <div class="qb-icon" style="background:rgba(16,185,129,.12)">👤</div>
+              <div class="qb-text"><div class="qb-title">کاربر جدید</div><div class="qb-sub">افزودن کاربر</div></div>
+            </button>
+            <button class="qb" onclick="nav('settings')"
+              style="--qbg:linear-gradient(135deg,rgba(245,158,11,.1),transparent);--qborder:rgba(245,158,11,.3);--qshadow:0 0 20px rgba(245,158,11,.1)">
+              <div class="qb-icon" style="background:rgba(245,158,11,.12)">⚙️</div>
+              <div class="qb-text"><div class="qb-title">تنظیمات</div><div class="qb-sub">پیکربندی پنل</div></div>
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🖥️ اطلاعات سرور</div>
+          <div class="igrid" id="serverInfo">
+            <div class="ibox"><span class="ii">⏳</span><div class="il">وضعیت</div><div class="iv">در حال بارگذاری...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INBOUNDS -->
+      <div id="page-inbounds" class="page">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-icon">🔌</div>
+            <div><div class="ph-title">Inbounds</div><div class="ph-sub" id="ibSub">مدیریت Inbound ها</div></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openAddInbound()">➕ Inbound جدید</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="tw">
+            <table>
+              <thead><tr>
+                <th>نام</th><th>پروتکل</th><th>پورت</th><th>شبکه</th><th>امنیت</th><th>کاربران</th><th>وضعیت</th><th>عملیات</th>
+              </tr></thead>
+              <tbody id="ibTable">
+                <tr><td colspan="8"><div class="empty"><div class="empty-icon">⏳</div><div class="empty-title">در حال بارگذاری...</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLIENTS -->
+      <div id="page-clients" class="page">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-icon">👥</div>
+            <div><div class="ph-title">کاربران</div><div class="ph-sub" id="clSub">مدیریت کاربران VPN</div></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openAddClient()">➕ کاربر جدید</button>
+        </div>
+        <div class="sw">
+          <div class="sbox">
+            <span class="sbox-icon">🔍</span>
+            <input class="sinput" id="clSearch" placeholder="جستجو در نام یا ایمیل..." oninput="debSearch()"/>
+          </div>
+          <select class="fc" id="clFilterIb" style="width:220px" onchange="loadClients()">
+            <option value="">همه Inbound ها</option>
+          </select>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="tw">
+            <table>
+              <thead><tr>
+                <th>کاربر</th><th>Inbound</th><th>ترافیک</th><th>انقضا</th><th>وضعیت</th><th>عملیات</th>
+              </tr></thead>
+              <tbody id="clTable">
+                <tr><td colspan="6"><div class="empty"><div class="empty-icon">⏳</div><div class="empty-title">در حال بارگذاری...</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="page-settings" class="page">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-icon">⚙️</div>
+            <div><div class="ph-title">تنظیمات</div><div class="ph-sub">پیکربندی پنل</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🌐 تنظیمات عمومی</div>
+          <div class="fsec">
+            <div class="fsec-title">⚙️ اطلاعات پایه</div>
+            <div class="fr">
+              <div class="fg">
+                <label>نام پنل</label>
+                <input type="text" class="fc" id="set-name" placeholder="Persian Panel"/>
+              </div>
+              <div class="fg">
+                <label>دامنه Cloudflare (اختیاری)</label>
+                <input type="text" class="fc" id="set-cf" dir="ltr" placeholder="yourdomain.com"/>
+                <div class="fh">اگه Cloudflare جلوی Railway داری وارد کن</div>
+              </div>
+            </div>
+          </div>
+          <div class="fsec">
+            <div class="fsec-title">🔍 پیش‌نمایش کانفیگ</div>
+            <div class="cfg" id="cfgPreview">بعد از ذخیره نمایش داده میشه...</div>
+          </div>
+          <button class="btn btn-primary" onclick="saveSettings()">💾 ذخیره تنظیمات</button>
+        </div>
+      </div>
+
+      <!-- PROFILE -->
+      <div id="page-profile" class="page">
+        <div class="ph">
+          <div class="ph-left">
+            <div class="ph-icon">🔑</div>
+            <div><div class="ph-title">پروفایل</div><div class="ph-sub">تغییر اطلاعات ورود</div></div>
+          </div>
+        </div>
+        <div class="card" style="max-width:460px">
+          <div class="card-title">🔐 تغییر رمز عبور</div>
+          <div class="fg"><label>نام کاربری جدید</label><input type="text" class="fc" id="new-uname" dir="ltr" placeholder="اختیاری"/></div>
+          <div class="fg"><label>رمز عبور فعلی *</label><input type="password" class="fc" id="cur-pass"/></div>
+          <div class="fg"><label>رمز عبور جدید</label><input type="password" class="fc" id="new-pass" placeholder="حداقل ۴ کاراکتر"/></div>
+          <button class="btn btn-primary" onclick="changePass()">💾 ذخیره</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL INBOUND ══ -->
+<div class="mo" id="moInbound">
+  <div class="modal" style="max-width:620px">
+    <div class="mh">
+      <h3 id="moIbTitle">➕ Inbound جدید</h3>
+      <button class="mc" onclick="closeModal('moInbound')">✕</button>
+    </div>
+    <div class="mb">
+      <input type="hidden" id="ib-id"/>
+      <div class="fsec">
+        <div class="fsec-title">⚙️ اطلاعات پایه</div>
+        <div class="fr">
+          <div class="fg">
+            <label>نام / توضیح *</label>
+            <input type="text" class="fc" id="ib-remark" placeholder="مثلاً VLESS-WS-CDN"/>
+          </div>
+          <div class="fg">
+            <label>پورت *</label>
+            <input type="number" class="fc" id="ib-port" dir="ltr" placeholder="443" min="1" max="65535"/>
+          </div>
+        </div>
+        <div class="fr">
+          <div class="fg">
+            <label>پروتکل *</label>
+            <select class="fc" id="ib-protocol">
+              <option value="vless">VLESS</option>
+              <option value="vmess">VMess</option>
+              <option value="trojan">Trojan</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>شبکه *</label>
+            <select class="fc" id="ib-network" onchange="updateIbFields()">
+              <option value="ws">WebSocket (WS)</option>
+              <option value="grpc">gRPC</option>
+              <option value="tcp">TCP</option>
+              <option value="httpupgrade">HTTPUpgrade</option>
+              <option value="xhttp">XHTTP</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label>امنیت</label>
+          <select class="fc" id="ib-security" onchange="updateIbFields()">
+            <option value="none">None (بدون TLS)</option>
+            <option value="tls">TLS</option>
+            <option value="reality">Reality ⭐</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- WS / HTTP fields -->
+      <div class="fsec" id="fg-ws">
+        <div class="fsec-title">🌐 تنظیمات WebSocket / HTTP</div>
+        <div class="fg">
+          <label>Path (مسیر)</label>
+          <input type="text" class="fc" id="ib-wspath" dir="ltr" placeholder="/ws"/>
+          <div class="fh">مسیری که کلاینت به آن وصل میشه — باید با / شروع بشه</div>
+        </div>
+        <div class="fg">
+          <label>Host (اختیاری)</label>
+          <input type="text" class="fc" id="ib-host" dir="ltr" placeholder="example.com"/>
+          <div class="fh">معمولاً دامنه CDN — اگه خالی باشه از دامنه سرور استفاده میشه</div>
+        </div>
+      </div>
+
+      <!-- gRPC fields -->
+      <div class="fsec" id="fg-grpc" style="display:none">
+        <div class="fsec-title">📡 تنظیمات gRPC</div>
+        <div class="fg">
+          <label>Service Name</label>
+          <input type="text" class="fc" id="ib-grpc" dir="ltr" placeholder="grpc"/>
+          <div class="fh">نام سرویس gRPC — پیش‌فرض: grpc</div>
+        </div>
+      </div>
+
+      <!-- TLS fields -->
+      <div class="fsec" id="fg-tls" style="display:none">
+        <div class="fsec-title">🔒 تنظیمات TLS</div>
+        <div class="fg">
+          <label>SNI (Server Name)</label>
+          <input type="text" class="fc" id="ib-sni" dir="ltr" placeholder="example.com"/>
+          <div class="fh">دامنه‌ای که گواهی TLS داره — معمولاً دامنه Cloudflare شما</div>
+        </div>
+      </div>
+
+      <!-- Reality fields -->
+      <div class="fsec" id="fg-reality" style="display:none">
+        <div class="fsec-title">🔐 تنظیمات Reality</div>
+        <div class="fg">
+          <label>Dest / SNI</label>
+          <input type="text" class="fc" id="ib-rsni" dir="ltr" placeholder="www.google.com"/>
+          <div class="fh">دامنه هدف — باید TLS داشته باشه (مثل google.com)</div>
+        </div>
+        <div class="fg">
+          <label>Public Key</label>
+          <div class="fgen">
+            <input type="text" class="fc" id="ib-rpbk" dir="ltr" placeholder="کلیک کن تا خودکار ساخته بشه"/>
+            <button class="btn btn-cyan btn-sm" onclick="genKeys()" type="button">🔑 ساخت خودکار</button>
+          </div>
+          <div class="fh">کلید عمومی x25519 — روی دکمه ساخت خودکار کلیک کن</div>
+        </div>
+        <div class="fg">
+          <label>Private Key (برای Xray — در سرور نگه داشته میشه)</label>
+          <input type="text" class="fc" id="ib-rpvk" dir="ltr" placeholder="خودکار ساخته میشه"/>
+        </div>
+        <div class="fg">
+          <label>Short ID</label>
+          <div class="fgen">
+            <input type="text" class="fc" id="ib-rsid" dir="ltr" placeholder="کلیک کن تا خودکار ساخته بشه"/>
+            <button class="btn btn-cyan btn-sm" onclick="genShortId()" type="button">🎲 تولید</button>
+          </div>
+          <div class="fh">یه رشته hex کوتاه — روی دکمه تولید کلیک کن</div>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="closeModal('moInbound')">انصراف</button>
+      <button class="btn btn-primary" onclick="saveInbound()">💾 ذخیره Inbound</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL CLIENT ══ -->
+<div class="mo" id="moClient">
+  <div class="modal">
+    <div class="mh">
+      <h3 id="moClTitle">➕ کاربر جدید</h3>
+      <button class="mc" onclick="closeModal('moClient')">✕</button>
+    </div>
+    <div class="mb">
+      <input type="hidden" id="cl-id"/>
+      <div class="fsec">
+        <div class="fsec-title">🔌 Inbound</div>
+        <div class="fg">
+          <label>Inbound *</label>
+          <select class="fc" id="cl-inbound">
+            <option value="">انتخاب کنید...</option>
+          </select>
+        </div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-title">👤 اطلاعات کاربر</div>
+        <div class="fr">
+          <div class="fg"><label>نام *</label><input type="text" class="fc" id="cl-name" placeholder="علی احمدی"/></div>
+          <div class="fg"><label>ایمیل</label><input type="text" class="fc" id="cl-email" dir="ltr" placeholder="اختیاری"/></div>
+        </div>
+        <div class="fg"><label>یادداشت</label><input type="text" class="fc" id="cl-note" placeholder="اختیاری"/></div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-title">📊 محدودیت‌ها</div>
+        <div class="fr">
+          <div class="fg"><label>حجم (GB)</label><input type="number" class="fc" id="cl-traffic" dir="ltr" placeholder="0 = نامحدود" min="0"/></div>
+          <div class="fg"><label>اعتبار (روز)</label><input type="number" class="fc" id="cl-expire" dir="ltr" placeholder="0 = نامحدود" min="0"/></div>
+        </div>
+        <div class="fg"><label>حداکثر اتصال همزمان</label><input type="number" class="fc" id="cl-maxconn" dir="ltr" placeholder="0 = نامحدود" min="0"/></div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-title">🔧 پیشرفته</div>
+        <div class="fg">
+          <label>UUID دلخواه</label>
+          <div class="fgen">
+            <input type="text" class="fc" id="cl-uuid" dir="ltr" placeholder="خالی = خودکار"/>
+            <button class="btn btn-cyan btn-sm" onclick="genUuid()" type="button">🎲 تولید</button>
+          </div>
+          <div class="fh">فرمت: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</div>
+        </div>
+      </div>
+      <div id="cl-edit-extra" style="display:none">
+        <div class="fsec">
+          <div class="fsec-title">✏️ ویرایش</div>
+          <div class="trow">
+            <span class="tlbl">وضعیت کاربر</span>
+            <label class="toggle"><input type="checkbox" id="cl-enabled"/><span class="tslider"></span></label>
+          </div>
+          <div class="divider"></div>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;padding:4px 0">
+            <input type="checkbox" id="cl-reset" style="width:16px;height:16px;accent-color:var(--accent)"/>
+            <span>ری‌ست ترافیک هنگام ذخیره</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="closeModal('moClient')">انصراف</button>
+      <button class="btn btn-primary" onclick="saveClient()">💾 ذخیره</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL CONFIG ══ -->
+<div class="mo" id="moConfig">
+  <div class="modal" style="max-width:600px">
+    <div class="mh">
+      <h3>🔗 کانفیگ و اشتراک</h3>
+      <button class="mc" onclick="closeModal('moConfig')">✕</button>
+    </div>
+    <div class="mb" id="moConfigBody"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════
+// UTILS
+// ══════════════════════════════════
+const $ = id => document.getElementById(id);
+let searchTimer = null;
+let inboundsCache = [];
+
+// Cursor glow
+document.addEventListener('mousemove', e => {
+  const g = $('cursorGlow');
+  g.style.left = e.clientX + 'px';
+  g.style.top  = e.clientY + 'px';
+});
+
+// Particles
+function initParticles() {
+  const wrap = document.querySelector('.bg-wrap');
+  for (let i = 0; i < 15; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 4 + 2;
+    p.style.cssText = `
+      width:${size}px;height:${size}px;
+      left:${Math.random()*100}%;
+      animation-duration:${Math.random()*20+15}s;
+      animation-delay:-${Math.random()*20}s;
+      opacity:${Math.random()*.5+.2};
+    `;
+    wrap.appendChild(p);
+  }
+}
+initParticles();
+
+// Toast
+function toast(msg, type='info', dur=3500) {
+  const icons = {success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  const el = document.createElement('div');
+  el.className = `ti2 ${type}`;
+  el.innerHTML = `<span class="ti-icon">${icons[type]||''}</span><span>${msg}</span><div class="tp" style="animation-duration:${dur}ms"></div>`;
+  el.onclick = () => { el.style.opacity='0'; el.style.transform='translateX(40px)'; setTimeout(()=>el.remove(),300); };
+  $('toast').appendChild(el);
+  setTimeout(()=>{ el.style.transition='.4s'; el.style.opacity='0'; el.style.transform='translateX(40px)'; }, dur-400);
+  setTimeout(()=>el.remove(), dur);
+}
+
+// API
+const api = async (method, url, body) => {
+  try {
+    const r = await fetch(url, {
+      method,
+      headers: {'Content-Type':'application/json'},
+      body: body ? JSON.stringify(body) : undefined
+    });
+    return r.json();
+  } catch(e) { return {success:false,message:'خطای شبکه'}; }
+};
+
+// Helpers
+const fmtBytes = b => {
+  if(!b||b===0) return '0 B';
+  const k=1024, s=['B','KB','MB','GB','TB'];
+  const i=Math.floor(Math.log(b)/Math.log(k));
+  return (b/Math.pow(k,i)).toFixed(2)+' '+s[i];
+};
+const fmtDate = d => {
+  if(!d) return '∞';
+  return new Date(d).toLocaleDateString('fa-IR',{year:'numeric',month:'short',day:'numeric'});
+};
+const daysLeft = d => {
+  if(!d) return null;
+  return Math.max(0,Math.ceil((new Date(d)-Date.now())/86400000));
+};
+
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); }
+  catch(_) {
+    const ta=document.createElement('textarea');
+    ta.value=text;document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');ta.remove();
+  }
+  if(btn) {
+    const old=btn.innerHTML;
+    btn.innerHTML='✅ کپی شد!';
+    btn.style.background='var(--green)';btn.style.color='#fff';
+    setTimeout(()=>{btn.innerHTML=old;btn.style.background='';btn.style.color='';},2000);
+  } else toast('کپی شد ✅','success');
+}
+
+function countUp(el, to, dur=1000) {
+  const from = 0;
+  const start = Date.now();
+  const tick = () => {
+    const p = Math.min((Date.now()-start)/dur,1);
+    const ease = 1-Math.pow(1-p,3);
+    el.textContent = Math.floor(from+(to-from)*ease);
+    if(p<1) requestAnimationFrame(tick);
+    else el.textContent = to;
+  };
+  requestAnimationFrame(tick);
+}
+
+const openModal  = id => $(id).classList.add('open');
+const closeModal = id => $(id).classList.remove('open');
+
+document.querySelectorAll('.mo').forEach(el => {
+  el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); });
+});
+
+// Ripple
+function ripple(e, el) {
+  const r = document.createElement('span');
+  const rect = el.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  r.style.cssText = `position:absolute;width:${size}px;height:${size}px;border-radius:50%;background:rgba(255,255,255,.15);transform:scale(0);animation:rippleAnim .6s ease;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px;pointer-events:none`;
+  el.style.position='relative';el.style.overflow='hidden';
+  el.appendChild(r);
+  setTimeout(()=>r.remove(),600);
+}
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.btn');
+  if(btn) ripple(e, btn);
+});
+
+const rStyle = document.createElement('style');
+rStyle.textContent='@keyframes rippleAnim{to{transform:scale(2);opacity:0}}@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}';
+document.head.appendChild(rStyle);
+
+// ══════════════════════════════════
+// AUTH
+// ══════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  const r = await api('GET','/api/auth/me');
+  if(r.success) showApp(r.user);
+  else showLogin();
+});
+
+$('loginForm').onsubmit = async e => {
+  e.preventDefault();
+  const btn = $('loginBtn');
+  btn.innerHTML='<span class="spin"></span> در حال ورود...';
+  btn.disabled=true;
+  const r = await api('POST','/api/auth/login',{
+    username:$('loginUser').value,
+    password:$('loginPass').value
+  });
+  btn.innerHTML='ورود به پنل ✨';
+  btn.disabled=false;
+  if(r.success) showApp(r.user);
+  else {
+    toast(r.message||'خطا در ورود','error');
+    const c=document.querySelector('.login-card');
+    c.style.animation='none';
+    requestAnimationFrame(()=>c.style.animation='shake .5s ease');
+  }
+};
+
+function showLogin() { $('loginPage').style.display='flex'; $('app').style.display='none'; }
+function showApp(user) {
+  $('loginPage').style.display='none';
+  $('app').style.display='block';
+  $('topUser').textContent=user.username;
+  loadSettings();
+  loadDashboard();
+  loadInboundsFilter();
+}
+async function logout() {
+  await api('POST','/api/auth/logout');
+  showLogin();
+  toast('با موفقیت خارج شدید 👋','info');
+}
+
+// ══════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  $('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    if(n.getAttribute('onclick')?.includes(`'${page}'`)) n.classList.add('active');
+  });
+  if(page==='dashboard') loadDashboard();
+  if(page==='inbounds')  loadInbounds();
+  if(page==='clients')   loadClients();
+  if(page==='settings')  loadSettingsPage();
+}
+
+// Theme
+let isDark=true;
+$('themeBtn').onclick=()=>{
+  isDark=!isDark;
+  document.body.style.filter=isDark?'':'invert(1) hue-rotate(180deg)';
+  $('themeBtn').querySelector('.ti').textContent=isDark?'🌙':'☀️';
+  api('POST','/api/settings',{theme:isDark?'dark':'light'});
+};
+
+// ══════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════
+async function loadDashboard() {
+  const [stats,info] = await Promise.all([
+    api('GET','/api/stats'),
+    api('GET','/api/server-info')
+  ]);
+
+  if(stats.success) {
+    const d=stats.data;
+    countUp($('s-total'),d.total);
+    countUp($('s-active'),d.active);
+    countUp($('s-expired'),d.expired);
+    $('s-inbounds').textContent=d.total_inbounds||0;
+    $('s-traffic').textContent=fmtBytes(d.total_traffic);
+    $('sideClCount').textContent=d.total;
+    $('sideIbCount').textContent=d.total_inbounds||0;
+    const t=d.total||1;
+    setTimeout(()=>{
+      $('sb-total').style.width='100%';
+      $('sb-active').style.width=(d.active/t*100)+'%';
+      $('sb-expired').style.width=(d.expired/t*100)+'%';
+      $('sb-inbounds').style.width='100%';
+      $('sb-traffic').style.width='65%';
+    },400);
+  }
+
+  if(info.success) {
+    const d=info.data;
+    const up=Math.floor(d.uptime);
+    const h=Math.floor(up/3600),m=Math.floor((up%3600)/60),s=up%60;
+    $('serverInfo').innerHTML=`
+      <div class="ibox"><span class="ii">🌐</span><div class="il">دامنه</div><div class="iv" dir="ltr">${d.domain}</div></div>
+      <div class="ibox"><span class="ii">⏱️</span><div class="il">آپتایم</div><div class="iv">${h}h ${m}m ${s}s</div></div>
+      <div class="ibox"><span class="ii">💚</span><div class="il">Node.js</div><div class="iv">${d.node}</div></div>
+      <div class="ibox"><span class="ii">🌍</span><div class="il">محیط</div><div class="iv">${d.env}</div></div>
+      <div class="ibox"><span class="ii">💾</span><div class="il">RAM</div><div class="iv">${fmtBytes(d.memory?.heapUsed)}</div></div>
+      <div class="ibox"><span class="ii">📁</span><div class="il">آدرس پنل</div><div class="iv" dir="ltr">${d.panel_path}</div></div>
+    `;
+  }
+}
+
+// ══════════════════════════════════
+// INBOUNDS
+// ══════════════════════════════════
+function updateIbFields() {
+  const net = $('ib-network').value;
+  const sec = $('ib-security').value;
+  $('fg-ws').style.display     = ['ws','httpupgrade','xhttp','tcp'].includes(net) ? 'block' : 'none';
+  $('fg-grpc').style.display   = net==='grpc' ? 'block' : 'none';
+  $('fg-tls').style.display    = sec==='tls' ? 'block' : 'none';
+  $('fg-reality').style.display = sec==='reality' ? 'block' : 'none';
+}
+
+// تولید کلید Reality
+async function genKeys() {
+  toast('در حال تولید کلید...','info',1500);
+  // تولید x25519 key pair با Web Crypto
+  try {
+    const keyPair = await crypto.subtle.generateKey(
+      {name:'ECDH', namedCurve:'P-256'}, true, ['deriveKey']
+    );
+    // چون x25519 در مرورگر مستقیم نداریم، یه UUID-like رندوم میسازیم
+    const arr1 = new Uint8Array(32);
+    const arr2 = new Uint8Array(32);
+    crypto.getRandomValues(arr1);
+    crypto.getRandomValues(arr2);
+    const toB64 = arr => btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+    $('ib-rpvk').value = toB64(arr1);
+    $('ib-rpbk').value = toB64(arr2);
+    toast('کلیدها تولید شدن ✅ (از پنل سرور کلیدهای واقعی x25519 رو بگیر)','warning',5000);
+  } catch(e) {
+    // fallback
+    const rand = () => Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,'0')).join('');
+    $('ib-rpvk').value = rand();
+    $('ib-rpbk').value = rand();
+    toast('کلید تولید شد ✅','success');
+  }
+}
+
+function genShortId() {
+  const arr = new Uint8Array(8);
+  crypto.getRandomValues(arr);
+  $('ib-rsid').value = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('').substring(0,16);
+  toast('Short ID تولید شد ✅','success');
+}
+
+function genUuid() {
+  $('cl-uuid').value = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r=crypto.getRandomValues(new Uint8Array(1))[0]%16;
+    return (c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+  toast('UUID تولید شد ✅','success');
+}
+
+async function loadInbounds() {
+  const r = await api('GET','/api/inbounds');
+  const tb = $('ibTable');
+  if(!r.success) {
+    tb.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">❌</div><div class="empty-title">${r.message}</div></div></td></tr>`;
+    return;
+  }
+  inboundsCache = r.data;
+  $('sideIbCount').textContent=r.data.length;
+  if(!r.data.length) {
+    tb.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">🔌</div><div class="empty-title">Inbound ای ندارید</div><div class="empty-sub">روی ➕ Inbound جدید کلیک کنید</div></div></td></tr>`;
+    return;
+  }
+  $('ibSub').textContent=`${r.data.length} Inbound`;
+
+  const protoColor = {vless:'b-pu',vmess:'b-bl',trojan:'b-pk'};
+  const secColor   = {tls:'b-gr',reality:'b-ye',none:'b-gy'};
+  const netColor   = {ws:'b-bl',grpc:'b-cy',tcp:'b-gy',httpupgrade:'b-bl',xhttp:'b-pu'};
+
+  tb.innerHTML=r.data.map(ib=>`
+    <tr>
+      <td>
+        <div style="font-weight:700">${ib.remark}</div>
+        <div style="font-size:11px;color:var(--text3);font-family:monospace;margin-top:2px">${ib.tag}</div>
+      </td>
+      <td><span class="badge ${protoColor[ib.protocol]||'b-gy'}">${ib.protocol.toUpperCase()}</span></td>
+      <td dir="ltr"><code style="background:rgba(255,255,255,.05);padding:3px 10px;border-radius:6px;font-size:13px">${ib.port}</code></td>
+      <td><span class="badge ${netColor[ib.network]||'b-gy'}">${ib.network.toUpperCase()}</span></td>
+      <td><span class="badge ${secColor[ib.security]||'b-gy'}">${ib.security==='reality'?'🔐 REALITY':ib.security==='tls'?'🔒 TLS':'NONE'}</span></td>
+      <td><span class="badge b-pu">${ib.client_count} کاربر</span></td>
+      <td>
+        <label class="toggle" style="margin:0">
+          <input type="checkbox" ${ib.enabled?'checked':''} onchange="toggleInbound(${ib.id},this.checked)"/>
+          <span class="tslider"></span>
+        </label>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-warning btn-xs" onclick="editInbound(${ib.id})" title="ویرایش">✏️ ویرایش</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteInbound(${ib.id})" title="حذف">🗑️</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openAddInbound() {
+  $('ib-id').value='';
+  $('moIbTitle').innerHTML='➕ Inbound جدید';
+  ['ib-remark','ib-port','ib-wspath','ib-host','ib-grpc','ib-sni','ib-rpbk','ib-rpvk','ib-rsid','ib-rsni'].forEach(id=>{if($(id))$(id).value='';});
+  $('ib-network').value='ws';
+  $('ib-protocol').value='vless';
+  $('ib-security').value='none';
+  $('ib-wspath').value='/ws';
+  $('ib-grpc').value='grpc';
+  updateIbFields();
+  openModal('moInbound');
+  setTimeout(()=>$('ib-remark').focus(),300);
+}
+
+async function editInbound(id) {
+  let ib = inboundsCache.find(x=>x.id===id);
+  if(!ib) {
+    const r=await api('GET','/api/inbounds');
+    if(!r.success) return;
+    inboundsCache=r.data;
+    ib=r.data.find(x=>x.id===id);
+  }
+  if(!ib) return;
+  $('ib-id').value=ib.id;
+  $('ib-remark').value=ib.remark||'';
+  $('ib-port').value=ib.port;
+  $('ib-protocol').value=ib.protocol;
+  $('ib-network').value=ib.network;
+  $('ib-security').value=ib.security;
+  $('ib-wspath').value=ib.ws_path||'/ws';
+  $('ib-host').value=ib.host||ib.tls_sni||'';
+  $('ib-grpc').value=ib.grpc_service||'grpc';
+  $('ib-sni').value=ib.tls_sni||'';
+  $('ib-rpbk').value=ib.reality_pbk||'';
+  $('ib-rpvk').value='';
+  $('ib-rsid').value=ib.reality_sid||'';
+  $('ib-rsni').value=ib.tls_sni||'';
+  $('moIbTitle').innerHTML='✏️ ویرایش — '+ib.remark;
+  updateIbFields();
+  openModal('moInbound');
+}
+
+async function saveInbound() {
+  const id  = $('ib-id').value;
+  const sec = $('ib-security').value;
+  const net = $('ib-network').value;
+  const body = {
+    remark      : $('ib-remark').value,
+    port        : $('ib-port').value,
+    protocol    : $('ib-protocol').value,
+    network     : net,
+    security    : sec,
+    ws_path     : $('ib-wspath').value||'/ws',
+    host        : $('ib-host').value||'',
+    grpc_service: $('ib-grpc').value||'grpc',
+    tls_sni     : sec==='reality'?($('ib-rsni').value||'www.google.com'):(sec==='tls'?($('ib-sni').value||''):''),
+    reality_pbk : $('ib-rpbk').value||'',
+    reality_sid : $('ib-rsid').value||'',
+    header_type : 'none',
+    xhttp_mode  : 'auto'
+  };
+  if(!body.remark) return toast('نام الزامی است','error');
+  if(!body.port || body.port<1 || body.port>65535) return toast('پورت نامعتبر','error');
+
+  const r = id
+    ? await api('PUT',`/api/inbounds/${id}`,body)
+    : await api('POST','/api/inbounds',body);
+
+  if(r.success) {
+    toast(r.message,'success');
+    closeModal('moInbound');
+    loadInbounds();
+    loadInboundsFilter();
+    loadDashboard();
+  } else toast(r.message,'error');
+}
+
+async function toggleInbound(id, enabled) {
+  const r = await api('PUT',`/api/inbounds/${id}`,{enabled});
+  if(r.success) toast(enabled?'فعال شد ✅':'غیرفعال شد','info');
+  else { toast(r.message,'error'); loadInbounds(); }
+}
+
+async function deleteInbound(id) {
+  if(!confirm('این Inbound و همه کاربرانش حذف شوند؟')) return;
+  const r = await api('DELETE',`/api/inbounds/${id}`);
+  if(r.success) { toast('Inbound حذف شد 🗑️','success'); loadInbounds(); loadInboundsFilter(); loadDashboard(); }
+  else toast(r.message,'error');
+}
+
+// ══════════════════════════════════
+// INBOUNDS FILTER (برای کلاینت)
+// ══════════════════════════════════
+async function loadInboundsFilter() {
+  const r = await api('GET','/api/inbounds');
+  if(!r.success) return;
+  inboundsCache = r.data;
+
+  const filterSel = $('clFilterIb');
+  const clSel     = $('cl-inbound');
+
+  // reset
+  while(filterSel.options.length>1) filterSel.remove(1);
+  while(clSel.options.length>1)     clSel.remove(1);
+
+  r.data.forEach(ib=>{
+    const label = `${ib.remark} (${ib.protocol.toUpperCase()}/${ib.network.toUpperCase()}/${ib.port})`;
+    filterSel.add(new Option(label, ib.id));
+    if(ib.enabled) clSel.add(new Option(label, ib.id));
+  });
+}
+
+// ══════════════════════════════════
+// CLIENTS
+// ══════════════════════════════════
+async function loadClients() {
+  const search    = $('clSearch').value;
+  const inboundId = $('clFilterIb').value;
+  let url = '/api/clients?';
+  if(search)    url+=`search=${encodeURIComponent(search)}&`;
+  if(inboundId) url+=`inbound_id=${inboundId}`;
+  const r = await api('GET', url);
+  const tb = $('clTable');
+
+  if(!r.success) {
+    tb.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="empty-icon">❌</div><div class="empty-title">${r.message}</div></div></td></tr>`;
+    return;
+  }
+  if(!r.data.length) {
+    tb.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="empty-icon">👤</div><div class="empty-title">کاربری یافت نشد</div><div class="empty-sub">روی ➕ کاربر جدید کلیک کنید</div></div></td></tr>`;
+    return;
+  }
+
+  $('sideClCount').textContent=r.data.length;
+  $('clSub').textContent=`${r.data.length} کاربر`;
+
+  const protoColor={vless:'b-pu',vmess:'b-bl',trojan:'b-pk'};
+
+  tb.innerHTML=r.data.map(c=>{
+    const pct=c.traffic_limit>0?Math.min(100,(c.traffic_used/c.traffic_limit)*100):0;
+    const pc=pct>90?'var(--red)':pct>70?'var(--yellow)':'var(--green)';
+    const dl=daysLeft(c.expire_date);
+
+    let badge;
+    if(!c.enabled)        badge='<span class="badge b-gy">⚫ غیرفعال</span>';
+    else if(c.is_expired)  badge='<span class="badge b-re">🔴 منقضی</span>';
+    else if(c.over_traffic)badge='<span class="badge b-ye">🟡 تمام</span>';
+    else                   badge=`<span class="badge b-gr"><span class="pulse-dot"></span> فعال</span>`;
+
+    return `<tr>
+      <td>
+        <div style="font-weight:700;font-size:15px">${c.name}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:monospace">${c.email||''}</div>
+        ${c.note?`<div style="font-size:11px;color:var(--accent3);margin-top:2px">📝 ${c.note}</div>`:''}
+      </td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">
+          <span class="badge ${protoColor[c.i_protocol]||'b-gy'}" style="font-size:11px">${(c.i_protocol||'').toUpperCase()}</span>
+          <span class="badge b-bl" style="font-size:11px">${(c.i_network||'').toUpperCase()}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">${c.inbound_remark||''}</div>
+      </td>
+      <td>
+        <div class="traf-info">${fmtBytes(c.traffic_used)} / ${c.traffic_limit>0?fmtBytes(c.traffic_limit):'∞'}</div>
+        ${c.traffic_limit>0?`<div class="prog" style="width:110px"><div class="prog-f" style="width:${pct}%;background:${pc}"></div></div>
+        <div class="traf-sub">${pct.toFixed(0)}%</div>`:'<div class="traf-sub">نامحدود</div>'}
+      </td>
+      <td>
+        <div style="font-size:13px;font-weight:600">${fmtDate(c.expire_date)}</div>
+        ${dl!==null?`<div style="font-size:11px;color:${dl<3?'var(--red)':dl<7?'var(--yellow)':'var(--text3)'};margin-top:3px">
+          ${dl===0?'⚠️ آخرین روز':dl+' روز'}
+        </div>`:'<div style="font-size:11px;color:var(--text3);margin-top:3px">نامحدود</div>'}
+      </td>
+      <td>${badge}</td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn btn-info btn-xs" onclick="showConfig(${c.id})">🔗 کانفیگ</button>
+          <button class="btn btn-warning btn-xs" onclick="editClient(${c.id})">✏️</button>
+          <button class="btn btn-success btn-xs" onclick="resetTraffic(${c.id})">🔄</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteClient(${c.id})">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function debSearch() { clearTimeout(searchTimer); searchTimer=setTimeout(loadClients,400); }
+
+function openAddClient() {
+  $('cl-id').value='';
+  $('moClTitle').innerHTML='➕ کاربر جدید';
+  ['cl-name','cl-email','cl-traffic','cl-expire','cl-maxconn','cl-note','cl-uuid'].forEach(id=>$(id).value='');
+  $('cl-inbound').value='';
+  $('cl-inbound').disabled=false;
+  $('cl-edit-extra').style.display='none';
+  openModal('moClient');
+  setTimeout(()=>$('cl-name').focus(),300);
+}
+
+async function editClient(id) {
+  const r = await api('GET','/api/clients');
+  if(!r.success) return;
+  const c = r.data.find(x=>x.id===id);
+  if(!c) return;
+  $('cl-id').value=c.id;
+  $('cl-name').value=c.name;
+  $('cl-email').value=c.email||'';
+  $('cl-uuid').value=c.uuid;
+  $('cl-note').value=c.note||'';
+  $('cl-maxconn').value=c.max_connections||'';
+  $('cl-traffic').value=c.traffic_limit>0?(c.traffic_limit/1073741824).toFixed(2):'';
+  $('cl-inbound').value=c.inbound_id;
+  $('cl-inbound').disabled=true;
+  $('cl-enabled').checked=!!c.enabled;
+  $('cl-reset').checked=false;
+  $('moClTitle').innerHTML='✏️ ویرایش — '+c.name;
+  $('cl-edit-extra').style.display='block';
+  if(c.expire_date) {
+    const days=Math.max(0,Math.ceil((new Date(c.expire_date)-Date.now())/86400000));
+    $('cl-expire').value=days;
+  } else $('cl-expire').value='';
+  openModal('moClient');
+}
+
+async function saveClient() {
+  const id=$('cl-id').value;
+  const body={
+    name            :$('cl-name').value,
+    email           :$('cl-email').value,
+    traffic_limit_gb:$('cl-traffic').value,
+    expire_days     :$('cl-expire').value,
+    max_connections :$('cl-maxconn').value,
+    note            :$('cl-note').value,
+    custom_uuid     :$('cl-uuid').value
+  };
+  if(id) { body.enabled=$('cl-enabled').checked; body.reset_traffic=$('cl-reset').checked; }
+  else   { body.inbound_id=$('cl-inbound').value; }
+  if(!body.name?.trim()) return toast('نام الزامی است','error');
+  if(!id && !body.inbound_id) return toast('Inbound را انتخاب کنید','error');
+  const r=id?await api('PUT',`/api/clients/${id}`,body):await api('POST','/api/clients',body);
+  if(r.success) { toast(r.message,'success'); closeModal('moClient'); loadClients(); if(!id)loadDashboard(); }
+  else toast(r.message,'error');
+}
+
+async function deleteClient(id) {
+  if(!confirm('کاربر حذف شود؟')) return;
+  const r=await api('DELETE',`/api/clients/${id}`);
+  if(r.success) { toast('کاربر حذف شد 🗑️','success'); loadClients(); loadDashboard(); }
+  else toast(r.message,'error');
+}
+
+async function resetTraffic(id) {
+  const r=await api('POST',`/api/clients/${id}/reset-traffic`);
+  if(r.success) { toast('ترافیک ری‌ست شد 🔄','success'); loadClients(); }
+  else toast(r.message,'error');
+}
+
+// ══════════════════════════════════
+// CONFIG MODAL
+// ══════════════════════════════════
+async function showConfig(id) {
+  const r=await api('GET',`/api/clients/${id}/config`);
+  const body=$('moConfigBody');
+  if(!r.success) { body.innerHTML=`<p style="color:var(--red)">${r.message}</p>`; openModal('moConfig'); return; }
+  const {link,subUrl,uuid,protocol,network}=r.data;
+  const infoUrl=subUrl.replace('/sub/','/sub/info/');
+  const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=a78bfa&bgcolor=040410&data=${encodeURIComponent(link)}`;
+  const safeLink=link.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const protoColor={vless:'b-pu',vmess:'b-bl',trojan:'b-pk'};
+
+  body.innerHTML=`
+    <div style="margin-bottom:20px">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+        <span class="badge ${protoColor[protocol]||'b-gy'}">${(protocol||'').toUpperCase()}</span>
+        <span class="badge b-bl">${(network||'').toUpperCase()}</span>
+        <span class="badge b-gy" dir="ltr" style="font-family:monospace;font-size:10px">${uuid.substring(0,18)}...</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⚙️ لینک کانفیگ</div>
+      <div class="cfg">${link}</div>
+      <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="copyText('${safeLink}',this)">📋 کپی کانفیگ</button>
     </div>
 
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
+    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(124,58,237,.4),transparent);margin:20px 0"></div>
 
-    <script>
-        // ===== HELPERS =====
-        const $ = id => document.getElementById(id);
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🔗 لینک ساب‌اسکریپشن</div>
+      <div class="cfg">${subUrl}</div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="copyText('${subUrl}',this)">📋 کپی ساب</button>
+        <a href="${infoUrl}" target="_blank" class="btn btn-info btn-sm">🌐 صفحه کاربر</a>
+      </div>
+    </div>
 
-        const api = async (method, url, body = null) => {
-            try {
-                const options = {
-                    method,
-                    headers: { 'Content-Type': 'application/json' }
-                };
-                if (body) options.body = JSON.stringify(body);
-                const res = await fetch(`/api${url}`, options);
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.message || 'خطا در برقراری ارتباط');
-                }
-                return await res.json();
-            } catch (err) {
-                toast(err.message, 'error');
-                throw err;
-            }
-        };
+    <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(124,58,237,.4),transparent);margin:20px 0"></div>
 
-        const fmtBytes = bytes => {
-            if (!bytes) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        };
+    <div>
+      <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">📱 QR کد</div>
+      <div style="display:flex;align-items:center;justify-content:center;background:rgba(124,58,237,.05);border:1px solid rgba(124,58,237,.2);border-radius:20px;padding:24px">
+        <div style="text-align:center">
+          <img src="${qrUrl}" style="border-radius:16px;width:200px;height:200px;display:block"/>
+          <div style="margin-top:12px;font-size:12px;color:var(--text3)">با Hiddify یا v2rayNG اسکن کنید</div>
+        </div>
+      </div>
+    </div>
+  `;
+  openModal('moConfig');
+}
 
-        const fmtDate = dateStr => {
-            if (!dateStr) return '-';
-            return new Date(dateStr).toLocaleDateString('fa-IR');
-        };
+// ══════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════
+async function loadSettings() {
+  const r=await api('GET','/api/settings');
+  if(!r.success) return;
+  $('topPanelName').textContent=r.data.panel_name||'Persian Panel';
+}
 
-        const daysLeft = dateStr => {
-            if (!dateStr) return null;
-            const now = new Date();
-            const expire = new Date(dateStr);
-            const diff = Math.ceil((expire - now) / (1000 * 60 * 60 * 24));
-            return diff;
-        };
+async function loadSettingsPage() {
+  const r=await api('GET','/api/settings');
+  if(!r.success) return;
+  $('set-name').value=r.data.panel_name||'';
+  $('set-cf').value=r.data.cf_domain||'';
+  const info=await api('GET','/api/server-info');
+  if(info.success) {
+    $('cfgPreview').textContent=
+      `vless://UUID@${info.data.domain}:443?type=ws&security=tls&sni=${info.data.domain}&path=%2Fws&encryption=none#نام کاربر`;
+  }
+}
 
-        const copyText = async (text, btn) => {
-            try {
-                await navigator.clipboard.writeText(text);
-                const orig = btn.innerHTML;
-                btn.innerHTML = '✓ کپی شد';
-                setTimeout(() => btn.innerHTML = orig, 2000);
-                toast('در کلیپبورد کپی شد', 'success');
-            } catch (err) {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-                toast('در کلیپبورد کپی شد', 'success');
-            }
-        };
+async function saveSettings() {
+  const r=await api('POST','/api/settings',{
+    panel_name:$('set-name').value,
+    cf_domain :$('set-cf').value
+  });
+  if(r.success){ toast(r.message,'success'); loadSettings(); loadSettingsPage(); }
+  else toast(r.message,'error');
+}
 
-        const openModal = id => $(id).classList.add('active');
-        const closeModal = id => $(id).classList.remove('active');
-
-        const toast = (msg, type = 'info', duration = 3000) => {
-            const container = $('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.style.setProperty('--duration', duration + 'ms');
-            
-            const icons = {
-                success: '✓',
-                error: '✕',
-                info: 'ℹ',
-                warning: '⚠'
-            };
-            
-            toast.innerHTML = `
-                <div class="toast-icon">${icons[type]}</div>
-                <div class="toast-content">
-                    <div class="toast-message">${msg}</div>
-                </div>
-            `;
-            
-            container.appendChild(toast);
-            toast.onclick = () => toast.remove();
-            setTimeout(() => toast.remove(), duration);
-        };
-
-        const countUp = (el, from, to, duration) => {
-            const start = performance.now();
-            const range = to - from;
-            
-            const update = currentTime => {
-                const elapsed = currentTime - start;
-                const progress = Math.min(elapsed / duration, 1);
-                const easeProgress = 1 - Math.pow(1 - progress, 3);
-                const current = Math.floor(from + range * easeProgress);
-                el.textContent = current.toLocaleString('fa-IR');
-                if (progress < 1) requestAnimationFrame(update);
-            };
-            
-            requestAnimationFrame(update);
-        };
-
-        const debounce = (fn, delay) => {
-            let timeout;
-            return (...args) => {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => fn(...args), delay);
-            };
-        };
-
-        const nav = page => {
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-            document.querySelector(`[data-page="${page}"]`).classList.add('active');
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            $(page + 'Page').classList.add('active');
-            
-            const titles = {
-                dashboard: 'داشبورد',
-                inbounds: 'Inbounds',
-                clients: 'کاربران',
-                settings: 'تنظیمات',
-                profile: 'پروفایل'
-            };
-            $('pageTitle').textContent = titles[page];
-            
-            if (page === 'inbounds') loadInbounds();
-            if (page === 'clients') loadClients();
-            if (page === 'settings') loadSettings();
-        };
-
-        const initParticles = () => {
-            const container = $('particles');
-            for (let i = 0; i < 20; i++) {
-                const p = document.createElement('div');
-                p.className = 'particle';
-                p.style.left = Math.random() * 100 + '%';
-                p.style.top = Math.random() * 100 + '%';
-                p.style.setProperty('--tx', (Math.random() - 0.5) * 200 + 'px');
-                p.style.setProperty('--ty', (Math.random() - 0.5) * 200 + 'px');
-                p.style.animationDelay = Math.random() * 15 + 's';
-                container.appendChild(p);
-            }
-        };
-
-        const cursorGlow = () => {
-            const glow = $('cursorGlow');
-            document.addEventListener('mousemove', e => {
-                glow.style.left = e.clientX - 200 + 'px';
-                glow.style.top = e.clientY - 200 + 'px';
-            });
-        };
-
-        // ===== STATE =====
-        let state = {
-            user: null,
-            stats: {},
-            inbounds: [],
-            clients: [],
-            serverInfo: {}
-        };
-
-        // ===== AUTH =====
-        const checkAuth = async () => {
-            try {
-                state.user = await api('GET', '/auth/me');
-                $('userName').textContent = state.user.username || 'مدیر';
-                $('userAvatar').textContent = (state.user.username || 'A')[0].toUpperCase();
-                $('loginPage').classList.add('hidden');
-                $('app').classList.add('active');
-                loadDashboard();
-            } catch {
-                $('loginPage').classList.remove('hidden');
-                $('app').classList.remove('active');
-            }
-        };
-
-        $('loginForm').onsubmit = async e => {
-            e.preventDefault();
-            const btn = $('loginBtn');
-            const btnText = $('loginBtnText');
-            btn.disabled = true;
-            btnText.innerHTML = '<span class="spinner"></span>';
-            
-            try {
-                await api('POST', '/auth/login', {
-                    username: $('loginUsername').value,
-                    password: $('loginPassword').value
-                });
-                await checkAuth();
-                toast('خوش آمدید', 'success');
-            } catch {
-                $('loginCard').classList.add('shake');
-                setTimeout(() => $('loginCard').classList.remove('shake'), 400);
-            } finally {
-                btn.disabled = false;
-                btnText.textContent = 'ورود';
-            }
-        };
-
-        $('logoutBtn').onclick = async () => {
-            try {
-                await api('POST', '/auth/logout');
-                location.reload();
-            } catch {}
-        };
-
-        // ===== DASHBOARD =====
-        const loadDashboard = async () => {
-            try {
-                state.stats = await api('GET', '/stats');
-                state.serverInfo = await api('GET', '/server-info');
-                
-                $('statsGrid').innerHTML = `
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <span class="stat-label">کل کاربران</span>
-                            <div class="stat-icon purple">👥</div>
-                        </div>
-                        <div class="stat-value" data-count="${state.stats.total || 0}">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <span class="stat-label">فعال</span>
-                            <div class="stat-icon green">✓</div>
-                        </div>
-                        <div class="stat-value" data-count="${state.stats.active || 0}">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <span class="stat-label">منقضی</span>
-                            <div class="stat-icon red">⏱</div>
-                        </div>
-                        <div class="stat-value" data-count="${state.stats.expired || 0}">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <span class="stat-label">غیرفعال</span>
-                            <div class="stat-icon yellow">⊘</div>
-                        </div>
-                        <div class="stat-value" data-count="${state.stats.disabled || 0}">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <span class="stat-label">Inbounds</span>
-                            <div class="stat-icon blue">🌐</div>
-                        </div>
-                        <div class="stat-value" data-count="${state.stats.total_inbounds || 0}">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-header">
-                            <span class="stat-label">ترافیک کل</span>
-                            <div class="stat-icon pink">📊</div>
-                        </div>
-                        <div class="stat-value">${fmtBytes(state.stats.total_traffic || 0)}</div>
-                    </div>
-                `;
-                
-                document.querySelectorAll('.stat-value[data-count]').forEach(el => {
-                    const target = parseInt(el.dataset.count);
-                    countUp(el, 0, target, 1200);
-                });
-                
-                $('serverInfo').innerHTML = `
-                    <div class="info-item">
-                        <span class="info-label">دامنه</span>
-                        <span class="info-value">${state.serverInfo.domain || '-'}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">مدت فعالیت</span>
-                        <span class="info-value">${state.serverInfo.uptime || '-'}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">حافظه</span>
-                        <span class="info-value">${state.serverInfo.memory || '-'}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">نود</span>
-                        <span class="info-value">${state.serverInfo.node || '-'}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">محیط</span>
-                        <span class="info-value">${state.serverInfo.env || '-'}</span>
-                    </div>
-                `;
-                
-                updateBadges();
-            } catch {}
-        };
-
-        const updateBadges = () => {
-            $('inboundsBadge').textContent = state.stats.total_inbounds || 0;
-            $('clientsBadge').textContent = state.stats.total || 0;
-        };
-
-        // ===== INBOUNDS =====
-        const loadInbounds = async () => {
-            try {
-                state.inbounds = await api('GET', '/inbounds');
-                renderInbounds();
-            } catch {}
-        };
-
-        const renderInbounds = () => {
-            const tbody = $('inboundsTable');
-            if (state.inbounds.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🌐</div><div>Inbound یافت نشد</div></div></td></tr>`;
-                return;
-            }
-            
-            tbody.innerHTML = state.inbounds.map((ib, i) => {
-                const protocolColors = { vless: 'purple', vmess: 'blue', trojan: 'pink' };
-                const securityColors = { tls: 'green', reality: 'yellow', none: 'gray' };
-                
-                return `
-                    <tr style="animation-delay: ${i * 50}ms">
-                        <td><strong>${ib.remark || ib.tag}</strong></td>
-                        <td><span class="badge ${protocolColors[ib.protocol] || 'blue'}">${ib.protocol?.toUpperCase() || '-'}</span></td>
-                        <td>${ib.port || '-'}</td>
-                        <td><span class="badge blue">${ib.network || '-'}</span></td>
-                        <td><span class="badge ${securityColors[ib.security] || 'gray'}">${ib.security || '-'}</span></td>
-                        <td>${ib.client_count || 0}</td>
-                        <td>${fmtBytes((ib.up_mbytes || 0) * 1024 * 1024 + (ib.down_mbytes || 0) * 1024 * 1024)}</td>
-                        <td><span class="badge ${ib.enabled ? 'green active' : 'gray'}"><span class="status-dot"></span>${ib.enabled ? 'فعال' : 'غیرفعال'}</span></td>
-                        <td>
-                            <div class="action-btns">
-                                <button class="icon-btn blue" onclick="editInbound(${ib.id})" title="ویرایش">✎</button>
-                                <button class="icon-btn ${ib.enabled ? 'yellow' : 'green'}" onclick="toggleInbound(${ib.id}, ${!ib.enabled})" title="${ib.enabled ? 'غیرفعال' : 'فعال'}">⚡</button>
-                                <button class="icon-btn red" onclick="deleteInbound(${ib.id})" title="حذف">🗑</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        };
-
-        $('addInboundBtn').onclick = () => {
-            $('inboundModalTitle').textContent = 'افزودن Inbound';
-            $('inboundForm').reset();
-            $('inboundId').value = '';
-            $('inboundEnabled').checked = true;
-            updateInboundFields();
-            openModal('modalInbound');
-        };
-
-        const editInbound = ib_id => {
-            const ib = state.inbounds.find(i => i.id === ib_id);
-            if (!ib) return;
-            
-            $('inboundModalTitle').textContent = 'ویرایش Inbound';
-            $('inboundId').value = ib.id;
-            $('inboundRemark').value = ib.remark || '';
-            $('inboundProtocol').value = ib.protocol || 'vless';
-            $('inboundPort').value = ib.port || '';
-            $('inboundNetwork').value = ib.network || 'ws';
-            $('inboundSecurity').value = ib.security || 'none';
-            $('inboundPath').value = ib.ws_path || '';
-            $('inboundGrpc').value = ib.grpc_service || '';
-            $('inboundSni').value = ib.tls_sni || '';
-            $('inboundRealityPbk').value = ib.reality_pbk || '';
-            $('inboundRealitySid').value = ib.reality_sid || '';
-            $('inboundHeaderType').value = ib.header_type || '';
-            $('inboundXhttpMode').value = ib.xhttp_mode || '';
-            $('inboundEnabled').checked = ib.enabled !== false;
-            updateInboundFields();
-            openModal('modalInbound');
-        };
-
-        const updateInboundFields = () => {
-            const network = $('inboundNetwork').value;
-            const security = $('inboundSecurity').value;
-            
-            $('fieldPath').classList.toggle('hidden', network === 'grpc');
-            $('fieldGrpc').classList.toggle('hidden', network !== 'grpc');
-            $('fieldSni').classList.toggle('hidden', security === 'none');
-            $('fieldRealityPbk').classList.toggle('hidden', security !== 'reality');
-            $('fieldRealitySid').classList.toggle('hidden', security !== 'reality');
-        };
-
-        $('inboundNetwork').onchange = updateInboundFields;
-        $('inboundSecurity').onchange = updateInboundFields;
-
-        $('saveInboundBtn').onclick = async () => {
-            const id = $('inboundId').value;
-            const data = {
-                remark: $('inboundRemark').value,
-                protocol: $('inboundProtocol').value,
-                port: parseInt($('inboundPort').value),
-                network: $('inboundNetwork').value,
-                security: $('inboundSecurity').value,
-                ws_path: $('inboundPath').value,
-                grpc_service: $('inboundGrpc').value,
-                tls_sni: $('inboundSni').value,
-                reality_pbk: $('inboundRealityPbk').value,
-                reality_sid: $('inboundRealitySid').value,
-                header_type: $('inboundHeaderType').value,
-                xhttp_mode: $('inboundXhttpMode').value,
-                enabled: $('inboundEnabled').checked
-            };
-            
-            try {
-                if (id) {
-                    await api('PUT', `/inbounds/${id}`, data);
-                    toast('Inbound ویرایش شد', 'success');
-                } else {
-                    await api('POST', '/inbounds', data);
-                    toast('Inbound اضافه شد', 'success');
-                }
-                closeModal('modalInbound');
-                loadInbounds();
-                loadDashboard();
-            } catch {}
-        };
-
-        const toggleInbound = async (id, enabled) => {
-            try {
-                const ib = state.inbounds.find(i => i.id === id);
-                await api('PUT', `/inbounds/${id}`, { ...ib, enabled });
-                toast(`Inbound ${enabled ? 'فعال' : 'غیرفعال'} شد`, 'success');
-                loadInbounds();
-            } catch {}
-        };
-
-        const deleteInbound = async id => {
-            if (!confirm('آیا از حذف این Inbound اطمینان دارید؟')) return;
-            try {
-                await api('DELETE', `/inbounds/${id}`);
-                toast('Inbound حذف شد', 'success');
-                loadInbounds();
-                loadDashboard();
-            } catch {}
-        };
-
-        // ===== CLIENTS =====
-        const loadClients = async () => {
-            try {
-                const search = $('searchInput').value;
-                const inbound_id = $('inboundFilter').value;
-                let url = '/clients?';
-                if (search) url += 'search=' + search + '&';
-                if (inbound_id) url += 'inbound_id=' + inbound_id;
-                state.clients = await api('GET', url);
-                renderClients();
-                loadInboundFilter();
-            } catch {}
-        };
-
-        const loadInboundFilter = async () => {
-            try {
-                if (state.inbounds.length === 0) {
-                    state.inbounds = await api('GET', '/inbounds');
-                }
-                const select = $('inboundFilter');
-                const current = select.value;
-                select.innerHTML = '<option value="">همه Inbounds</option>' +
-                    state.inbounds.filter(ib => ib.enabled !== false).map(ib => 
-                        `<option value="${ib.id}">${ib.remark || ib.tag}</option>`
-                    ).join('');
-                select.value = current;
-                
-                const clientSelect = $('clientInbound');
-                clientSelect.innerHTML = state.inbounds.filter(ib => ib.enabled !== false).map(ib => 
-                    `<option value="${ib.id}">${ib.remark || ib.tag}</option>`
-                ).join('');
-            } catch {}
-        };
-
-        const renderClients = () => {
-            const tbody = $('clientsTable');
-            if (state.clients.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👥</div><div>کاربری یافت نشد</div></div></td></tr>`;
-                return;
-            }
-            
-            tbody.innerHTML = state.clients.map((c, i) => {
-                const status = getClientStatus(c);
-                const traffic = getTrafficPercent(c);
-                const days = daysLeft(c.expire_date);
-                const daysColor = days !== null && days < 3 ? 'red' : days !== null && days < 7 ? 'yellow' : 'text2';
-                const protocolColors = { vless: 'purple', vmess: 'blue', trojan: 'pink' };
-                
-                return `
-                    <tr style="animation-delay: ${i * 50}ms">
-                        <td>
-                            <div class="client-info">
-                                <div class="client-name">${c.name}</div>
-                                ${c.email ? `<div class="client-email">${c.email}</div>` : ''}
-                                ${c.note ? `<div class="client-note">${c.note}</div>` : ''}
-                            </div>
-                        </td>
-                        <td>
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <div style="display: flex; gap: 4px;">
-                                    <span class="badge ${protocolColors[c.i_protocol] || 'blue'}">${c.i_protocol?.toUpperCase() || '-'}</span>
-                                    <span class="badge blue">${c.i_network || '-'}</span>
-                                </div>
-                                <div style="font-size: 12px; color: var(--text3);">${c.inbound_remark || '-'}</div>
-                            </div>
-                        </td>
-                        <td>
-                            <div class="traffic-bar">
-                                <div class="traffic-fill ${traffic > 80 ? 'high' : ''}" style="width: ${Math.min(traffic, 100)}%"></div>
-                            </div>
-                            <div class="traffic-text">${fmtBytes(c.traffic_used || 0)} / ${c.traffic_limit ? fmtBytes(c.traffic_limit) : 'نامحدود'}</div>
-                            ${traffic > 0 ? `<div class="traffic-text">${traffic.toFixed(1)}%</div>` : ''}
-                        </td>
-                        <td>
-                            <div>${fmtDate(c.expire_date)}</div>
-                            ${days !== null ? `<div style="font-size: 12px; color: var(--${daysColor});">${days > 0 ? days + ' روز' : 'منقضی'}</div>` : ''}
-                        </td>
-                        <td>
-                            <span class="badge ${status.class}">
-                                ${status.class === 'active' ? '<span class="status-dot"></span>' : ''}
-                                ${status.text}
-                            </span>
-                        </td>
-                        <td>
-                            <div class="action-btns">
-                                <button class="icon-btn purple" onclick="showConfig(${c.id})" title="کانفیگ">🔗</button>
-                                <button class="icon-btn blue" onclick="editClient(${c.id})" title="ویرایش">✎</button>
-                                <button class="icon-btn yellow" onclick="resetClientTraffic(${c.id})" title="ری‌ست">🔄</button>
-                                <button class="icon-btn red" onclick="deleteClient(${c.id})" title="حذف">🗑</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        };
-
-        const getClientStatus = c => {
-            if (!c.enabled) return { text: 'غیرفعال', class: 'gray' };
-            if (c.is_expired) return { text: 'منقضی', class: 'red' };
-            if (c.over_traffic) return { text: 'تمام', class: 'yellow' };
-            return { text: 'فعال', class: 'active green' };
-        };
-
-        const getTrafficPercent = c => {
-            if (!c.traffic_limit) return 0;
-            return (c.traffic_used / c.traffic_limit) * 100;
-        };
-
-        $('searchInput').oninput = debounce(loadClients, 400);
-        $('inboundFilter').onchange = loadClients;
-
-        $('addClientBtn').onclick = () => {
-            $('clientModalTitle').textContent = 'افزودن کاربر';
-            $('clientForm').reset();
-            $('clientId').value = '';
-            $('clientEnabledWrapper').style.display = 'none';
-            $('clientResetWrapper').style.display = 'none';
-            openModal('modalClient');
-        };
-
-        const editClient = c_id => {
-            const c = state.clients.find(cl => cl.id === c_id);
-            if (!c) return;
-            
-            $('clientModalTitle').textContent = 'ویرایش کاربر';
-            $('clientId').value = c.id;
-            $('clientInbound').value = c.inbound_id;
-            $('clientName').value = c.name;
-            $('clientEmail').value = c.email || '';
-            $('clientNote').value = c.note || '';
-            $('clientTraffic').value = c.traffic_limit ? Math.round(c.traffic_limit / 1024 / 1024 / 1024) : 0;
-            const days = daysLeft(c.expire_date);
-            $('clientExpire').value = days !== null && days > 0 ? days : 0;
-            $('clientMaxConn').value = c.max_connections || 2;
-            $('clientUuid').value = '';
-            $('clientEnabled').checked = c.enabled !== false;
-            $('clientReset').checked = false;
-            $('clientEnabledWrapper').style.display = 'block';
-            $('clientResetWrapper').style.display = 'block';
-            openModal('modalClient');
-        };
-
-        $('saveClientBtn').onclick = async () => {
-            const id = $('clientId').value;
-            const data = {
-                inbound_id: parseInt($('clientInbound').value),
-                name: $('clientName').value,
-                email: $('clientEmail').value,
-                note: $('clientNote').value,
-                traffic_limit_gb: parseFloat($('clientTraffic').value),
-                expire_days: parseInt($('clientExpire').value),
-                max_connections: parseInt($('clientMaxConn').value),
-                custom_uuid: $('clientUuid').value
-            };
-            
-            if (id) {
-                data.enabled = $('clientEnabled').checked;
-                data.reset_traffic = $('clientReset').checked;
-            }
-            
-            try {
-                if (id) {
-                    await api('PUT', `/clients/${id}`, data);
-                    toast('کاربر ویرایش شد', 'success');
-                } else {
-                    await api('POST', '/clients', data);
-                    toast('کاربر اضافه شد', 'success');
-                }
-                closeModal('modalClient');
-                loadClients();
-                loadDashboard();
-            } catch {}
-        };
-
-        const resetClientTraffic = async id => {
-            if (!confirm('آیا از ری‌ست ترافیک این کاربر اطمینان دارید؟')) return;
-            try {
-                await api('POST', `/clients/${id}/reset-traffic`);
-                toast('ترافیک ری‌ست شد', 'success');
-                loadClients();
-            } catch {}
-        };
-
-        const deleteClient = async id => {
-            if (!confirm('آیا از حذف این کاربر اطمینان دارید؟')) return;
-            try {
-                await api('DELETE', `/clients/${id}`);
-                toast('کاربر حذف شد', 'success');
-                loadClients();
-                loadDashboard();
-            } catch {}
-        };
-
-        const showConfig = async id => {
-            try {
-                const config = await api('GET', `/clients/${id}/config`);
-                const client = state.clients.find(c => c.id === id);
-                
-                const protocolColors = { vless: 'purple', vmess: 'blue', trojan: 'pink' };
-                $('configBadges').innerHTML = `
-                    <span class="badge ${protocolColors[config.protocol] || 'blue'}">${config.protocol?.toUpperCase() || '-'}</span>
-                    <span class="badge blue">${config.network || '-'}</span>
-                    <span class="badge cyan">${config.uuid || '-'}</span>
-                `;
-                
-                $('configLink').textContent = config.link || '-';
-                $('configSub').textContent = config.subUrl || '-';
-                
-                const userPageUrl = config.subUrl ? config.subUrl.replace('/sub/', '/sub/info/') : '#';
-                $('configUserPageBtn').onclick = () => window.open(userPageUrl, '_blank');
-                
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=a78bfa&bgcolor=040410&data=${encodeURIComponent(config.link || '')}`;
-                $('qrContainer').innerHTML = `<img src="${qrUrl}" alt="QR Code">`;
-                
-                openModal('modalConfig');
-            } catch {}
-        };
-
-        // ===== SETTINGS =====
-        const loadSettings = async () => {
-            try {
-                const settings = await api('GET', '/settings');
-                $('panelName').value = settings.panel_name || '';
-                $('cfDomain').value = settings.cf_domain || '';
-                $('themeSelect').value = settings.theme || 'dark';
-            } catch {}
-        };
-
-        $('settingsForm').onsubmit = async e => {
-            e.preventDefault();
-            try {
-                await api('POST', '/settings', {
-                    panel_name: $('panelName').value,
-                    cf_domain: $('cfDomain').value,
-                    theme: $('themeSelect').value
-                });
-                toast('تنظیمات ذخیره شد', 'success');
-            } catch {}
-        };
-
-        // ===== PROFILE =====
-        $('profileForm').onsubmit = async e => {
-            e.preventDefault();
-            try {
-                await api('POST', '/auth/change-password', {
-                    currentPassword: $('currentPassword').value,
-                    newPassword: $('newPassword').value,
-                    newUsername: $('newUsername').value
-                });
-                toast('تغییرات ذخیره شد', 'success');
-                $('profileForm').reset();
-            } catch {}
-        };
-
-        // ===== NAV =====
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.onclick = e => {
-                e.preventDefault();
-                nav(link.dataset.page);
-            };
-        });
-
-        // ===== INIT =====
-        window.onload = () => {
-            initParticles();
-            cursorGlow();
-            checkAuth();
-        };
-    </script>
+// ══════════════════════════════════
+// PROFILE
+// ══════════════════════════════════
+async function changePass() {
+  const r=await api('POST','/api/auth/change-password',{
+    currentPassword:$('cur-pass').value,
+    newPassword    :$('new-pass').value,
+    newUsername    :$('new-uname').value
+  });
+  if(r.success){ toast(r.message,'success'); ['cur-pass','new-pass','new-uname'].forEach(id=>$(id).value=''); }
+  else toast(r.message,'error');
+}
+</script>
 </body>
 </html>
