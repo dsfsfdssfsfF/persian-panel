@@ -1,43 +1,47 @@
 {
   "log": {
-    "loglevel": "info",
-    "access": "/var/log/supervisor/xray-access.log",
-    "error": "/var/log/supervisor/xray-error.log"
+    "loglevel": "warning",
+    "access": "none",
+    "error": "/var/log/xray-error.log"
+  },
+  "api": {
+    "tag": "api",
+    "services": [
+      "HandlerService",
+      "StatsService",
+      "LoggerService"
+    ]
+  },
+  "stats": {},
+  "policy": {
+    "levels": {
+      "0": {
+        "statsUserUplink": true,
+        "statsUserDownlink": true
+      }
+    },
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
   },
   "inbounds": [
     {
-      "port": 10086,
+      "tag": "api",
+      "port": 10085,
       "listen": "127.0.0.1",
-      "protocol": "vless",
-      "settings": {
-        "clients": [],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "ws",
-        "security": "none",
-        "wsSettings": {
-          "path": "/ws",
-          "headers": {}
-        }
-      },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": [
-          "http",
-          "tls",
-          "quic"
-        ]
-      }
+      "protocol": "dokodemo-door",
+      "settings": { "address": "127.0.0.1" },
+      "streamSettings": { "network": "tcp" }
     }
   ],
   "outbounds": [
     {
       "protocol": "freedom",
       "tag": "direct",
-      "settings": {
-        "domainStrategy": "UseIPv4"
-      }
+      "settings": { "domainStrategy": "UseIPv4" }
     },
     {
       "protocol": "blackhole",
@@ -50,26 +54,14 @@
     "rules": [
       {
         "type": "field",
-        "ip": [
-          "geoip:private"
-        ],
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      },
+      {
+        "type": "field",
+        "ip": ["geoip:private"],
         "outboundTag": "block"
       }
     ]
-  },
-  "policy": {
-    "levels": {
-      "0": {
-        "handshake": 4,
-        "connIdle": 300,
-        "uplinkOnly": 2,
-        "downlinkOnly": 5,
-        "bufferSize": 512
-      }
-    },
-    "system": {
-      "statsInboundUplink": false,
-      "statsInboundDownlink": false
-    }
   }
 }
