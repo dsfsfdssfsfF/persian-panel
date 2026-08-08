@@ -1,35 +1,24 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# ابزارهای build برای better-sqlite3
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
-    gcc \
     curl \
-    tzdata && \
-    cp /usr/share/zoneinfo/Asia/Tehran /etc/localtime && \
-    echo "Asia/Tehran" > /etc/timezone && \
-    rm -rf /var/cache/apk/*
+    && rm -rf /var/lib/apt/lists/*
 
-# اول package.json کپی کن
 COPY package*.json ./
 
-# نصب همه dependencies
-RUN npm install && \
-    npm cache clean --force
+RUN npm install --prefer-offline
 
-# بقیه فایل‌ها
 COPY . .
 
-# پوشه‌های لازم
 RUN mkdir -p /data /app/public
 
-EXPOSE 3000
+ENV NODE_ENV=production
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+EXPOSE 3000
 
 CMD ["node", "server.js"]
