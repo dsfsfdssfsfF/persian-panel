@@ -167,15 +167,18 @@ function syncXray() {
 // ══════════════════════════════════
 function makeLink(client, req) {
   const domain = getDomain(req);
-  const port   = getPort();
+  const port   = '443';
   const wsPath = G('ws_path') || '/ws';
   const name   = encodeURIComponent(`${client.name} | PersianPanel`);
 
   const q = new URLSearchParams();
   q.set('type',       'ws');
-  q.set('security',   'none');
+  q.set('security',   'tls');      // ← TLS چون Railway HTTPS داره
   q.set('path',       wsPath);
   q.set('host',       domain);
+  q.set('sni',        domain);
+  q.set('fp',         'chrome');
+  q.set('alpn',       'h2,http/1.1');
   q.set('encryption', 'none');
 
   return `vless://${client.uuid}@${domain}:${port}?${q.toString()}#${name}`;
