@@ -4,7 +4,8 @@
   },
   "inbounds": [
     {
-      "port": 3000,
+      "port": 10086,
+      "listen": "127.0.0.1",
       "protocol": "vless",
       "settings": {
         "clients": [],
@@ -21,7 +22,22 @@
   "outbounds": [
     {
       "protocol": "freedom",
+      "tag": "direct",
+      "settings": {}
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block",
       "settings": {}
     }
-  ]
+  ],
+  "routing": {
+    "rules": [
+      {
+        "type": "field",
+        "ip": ["geoip:private"],
+        "outboundTag": "block"
+      }
+    ]
+  }
 }
