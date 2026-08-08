@@ -1,575 +1,1054 @@
-require('dotenv').config();
-const express = require('express');
-const session = require('express-session');
-const compression = require('compression');
-const morgan = require('morgan');
-const path = require('path');
-const cron = require('node-cron');
-const Database = require('better-sqlite3');
-const bcrypt = require('bcryptjs');
-const { v4: uuidv4 } = require('uuid');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// ════════════════════════════════
-// DATABASE SETUP
-// ════════════════════════════════
-let dbPath = './persian.db';
-try {
-  const fs = require('fs');
-  if (!fs.existsSync('/data')) fs.mkdirSync('/data', { recursive: true });
-  dbPath = '/data/persian.db';
-} catch (e) {}
-
-let db;
-try { db = new Database(dbPath); }
-catch (e) { db = new Database('./persian.db'); }
-
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-function initDB() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS panel_users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      role TEXT DEFAULT 'admin',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS inbounds (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tag TEXT UNIQUE NOT NULL,
-      protocol TEXT NOT NULL,
-      port INTEGER NOT NULL,
-      network TEXT NOT NULL,
-      security TEXT DEFAULT 'none',
-      external_proxy TEXT DEFAULT '',
-      path TEXT DEFAULT '/',
-      host TEXT DEFAULT '',
-      service_name TEXT DEFAULT 'grpc',
-      header_type TEXT DEFAULT 'none',
-      xhttp_mode TEXT DEFAULT 'auto',
-      tls_sni TEXT DEFAULT '',
-      stream_settings TEXT DEFAULT '{}',
-      enabled INTEGER DEFAULT 1,
-      remark TEXT DEFAULT '',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS clients (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      inbound_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      uuid TEXT NOT NULL,
-      email TEXT DEFAULT '',
-      traffic_limit INTEGER DEFAULT 0,
-      traffic_used INTEGER DEFAULT 0,
-      expire_date TEXT DEFAULT NULL,
-      max_connections INTEGER DEFAULT 0,
-      external_proxy TEXT DEFAULT '',
-      enabled INTEGER DEFAULT 1,
-      sub_token TEXT UNIQUE NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (inbound_id) REFERENCES inbounds(id) ON DELETE CASCADE
-    );
-  `);
-
-  // ادمین پیش‌فرض
-  if (!db.prepare('SELECT id FROM panel_users WHERE username=?').get('admin')) {
-    db.prepare('INSERT INTO panel_users (username,password,role) VALUES (?,?,?)')
-      .run('admin', bcrypt.hashSync('admin', 10), 'superadmin');
-    console.log('✅ Default admin created: admin / admin');
-  }
-
-  // تنظیمات پیش‌فرض
-  const railDomain = process.env.RAILWAY_PUBLIC_DOMAIN || '';
-  const defaults = {
-    panel_name: 'Persian Panel',
-    panel_domain: railDomain || 'localhost',
-    theme: 'dark',
-    tcp_proxy: ''
-  };
-
-  for (const [k, v] of Object.entries(defaults)) {
-    if (!db.prepare('SELECT key FROM settings WHERE key=?').get(k))
-      db.prepare('INSERT INTO settings (key,value) VALUES (?,?)').run(k, v);
-  }
-
-  if (railDomain) {
-    db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run('panel_domain', railDomain);
-  }
-
-  console.log('✅ Database ready:', dbPath);
-}
-
-const G = (k) => { const r = db.prepare('SELECT value FROM settings WHERE key=?').get(k); return r ? r.value : ''; };
-const S = (k, v) => db.prepare('INSERT OR REPLACE INTO settings (key,value,updated_at) VALUES (?,?,CURRENT_TIMESTAMP)').run(k, String(v));
-
-// ════════════════════════════════
-// CONFIG GENERATOR
-// ════════════════════════════════
-function buildSS(net, sec, p, h, sn, ht, xm, sni) {
-  const ss = { network: net, security: sec || 'none' };
-  if (sec === 'tls') ss.tlsSettings = { serverName: sni || '', alpn: ['h2', 'http/1.1'], allowInsecure: false };
-  if (net === 'tcp') ss.tcpSettings = { header: ht === 'http' ? { type: 'http', request: { version: '1.1', method: 'GET', path: [p || '/'], headers: { Host: [h || ''], 'User-Agent': ['Mozilla/5.0'], Connection: ['keep-alive'] } } } : { type: 'none' } };
-  if (net === 'ws') ss.wsSettings = { path: p || '/', headers: h ? { Host: h } : {} };
-  if (net === 'grpc') ss.grpcSettings = { serviceName: sn || 'grpc', multiMode: false };
-  if (net === 'httpupgrade') ss.httpupgradeSettings = { path: p || '/', host: h || '' };
-  if (net === 'xhttp') ss.xhttpSettings = { path: p || '/', host: h || '', mode: xm || 'auto' };
-  return ss;
-}
-
-function makeLink(client, ib) {
-  const domain = G('panel_domain') || 'localhost';
-  const proxy = client.external_proxy || ib.external_proxy || G('tcp_proxy') || '';
-  let addr = domain, port = ib.port;
-
-  if (proxy && proxy.includes(':')) {
-    const pp = proxy.split(':');
-    addr = pp[0].trim();
-    port = parseInt(pp[1]) || ib.port;
-  }
-
-  const net = ib.network;
-  const sec = ib.security || 'none';
-  const pr = ib.path || '/';
-  const ho = ib.host || '';
-  const sn = ib.service_name || 'grpc';
-  const ht = ib.header_type || 'none';
-  const xm = ib.xhttp_mode || 'auto';
-  const sni = ib.tls_sni || domain;
-  const nm = encodeURIComponent(`${client.name} | PersianPanel`);
-
-  if (ib.protocol === 'vless') {
-    const q = new URLSearchParams({ type: net, security: sec });
-    if (sec === 'tls') { q.set('sni', sni); q.set('alpn', 'h2,http/1.1'); q.set('fp', 'chrome'); }
-    if (net === 'ws') { q.set('path', pr); if (ho) q.set('host', ho); }
-    if (net === 'grpc') { q.set('serviceName', sn); q.set('mode', 'gun'); }
-    if (net === 'httpupgrade') { q.set('path', pr); if (ho) q.set('host', ho); }
-    if (net === 'xhttp') { q.set('path', pr); if (ho) q.set('host', ho); q.set('mode', xm); }
-    if (net === 'tcp' && ht === 'http') { q.set('headerType', 'http'); q.set('path', pr); if (ho) q.set('host', ho); }
-    return `vless://${client.uuid}@${addr}:${port}?${q.toString()}#${nm}`;
-  }
-
-  if (ib.protocol === 'vmess') {
-    const obj = { v: '2', ps: `${client.name} | PersianPanel`, add: addr, port: String(port), id: client.uuid, aid: '0', scy: 'auto', net, type: 'none', host: ho, path: pr, tls: sec === 'tls' ? 'tls' : '', sni: sec === 'tls' ? sni : '', alpn: sec === 'tls' ? 'h2,http/1.1' : '', fp: sec === 'tls' ? 'chrome' : '' };
-    if (net === 'grpc') { obj.path = sn; obj.type = 'gun'; obj.host = ''; }
-    if (net === 'tcp' && ht === 'http') obj.type = 'http';
-    return `vmess://${Buffer.from(JSON.stringify(obj)).toString('base64')}`;
-  }
-
-  if (ib.protocol === 'trojan') {
-    const q = new URLSearchParams({ type: net, security: 'tls', sni, alpn: 'h2,http/1.1', fp: 'chrome' });
-    if (net === 'ws') { q.set('path', pr); if (ho) q.set('host', ho); }
-    if (net === 'grpc') q.set('serviceName', sn);
-    if (net === 'httpupgrade') { q.set('path', pr); if (ho) q.set('host', ho); }
-    return `trojan://${client.uuid}@${addr}:${port}?${q.toString()}#${nm}`;
-  }
-
-  return '';
-}
-
-function getConfigs(client, ib) {
-  const link = makeLink(client, ib);
-  return link ? [{ type: ib.protocol, network: ib.network, name: `${client.name} | ${ib.network.toUpperCase()}`, link }] : [];
-}
-
-// ════════════════════════════════
-// EXPRESS SETUP
-// ════════════════════════════════
-app.use(compression());
-app.use(morgan('tiny'));
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true }));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'persian2024secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false, httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 }
-}));
-
-const auth = (req, res, next) => {
-  if (req.session && req.session.uid) return next();
-  res.status(401).json({ success: false, message: 'Unauthorized' });
-};
-
-// ════════════════════════════════
-// HEALTH
-// ════════════════════════════════
-app.get('/health', (_, res) => res.json({ status: 'ok', uptime: process.uptime() }));
-
-// ════════════════════════════════
-// AUTH
-// ════════════════════════════════
-app.get('/api/auth/me', (req, res) => {
-  if (!req.session?.uid) return res.status(401).json({ success: false });
-  res.json({ success: true, user: { id: req.session.uid, username: req.session.uname, role: req.session.role } });
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ success: false, message: 'وارد کنید' });
-    const user = db.prepare('SELECT * FROM panel_users WHERE username=?').get(username.trim());
-    if (!user || !(await bcrypt.compare(password, user.password)))
-      return res.status(401).json({ success: false, message: 'نام کاربری یا رمز اشتباه' });
-    req.session.uid = user.id;
-    req.session.uname = user.username;
-    req.session.role = user.role;
-    res.json({ success: true, user: { id: user.id, username: user.username } });
-  } catch (e) { res.status(500).json({ success: false, message: 'خطا' }); }
-});
-
-app.post('/api/auth/logout', (req, res) => req.session.destroy(() => res.json({ success: true })));
-
-app.post('/api/auth/change-password', auth, async (req, res) => {
-  try {
-    const { currentPassword, newPassword, newUsername } = req.body;
-    const user = db.prepare('SELECT * FROM panel_users WHERE id=?').get(req.session.uid);
-    if (!user || !(await bcrypt.compare(currentPassword, user.password)))
-      return res.status(401).json({ success: false, message: 'رمز فعلی اشتباه' });
-    const upd = [], prm = [];
-    if (newPassword?.length >= 4) { upd.push('password=?'); prm.push(await bcrypt.hash(newPassword, 10)); }
-    if (newUsername?.trim().length >= 2) { upd.push('username=?'); prm.push(newUsername.trim()); }
-    if (!upd.length) return res.json({ success: false, message: 'چیزی تغییر نکرد' });
-    prm.push(req.session.uid);
-    db.prepare(`UPDATE panel_users SET ${upd.join(',')} WHERE id=?`).run(...prm);
-    if (newUsername) req.session.uname = newUsername.trim();
-    res.json({ success: true, message: 'تغییر یافت ✅' });
-  } catch (e) { res.status(500).json({ success: false, message: 'خطا' }); }
-});
-
-// ════════════════════════════════
-// SETTINGS
-// ════════════════════════════════
-app.get('/api/settings', auth, (_, res) => {
-  const keys = ['panel_name', 'panel_domain', 'tcp_proxy', 'theme'];
-  const data = {};
-  keys.forEach(k => data[k] = G(k));
-  res.json({ success: true, data });
-});
-
-app.post('/api/settings', auth, (req, res) => {
-  const { panel_domain, tcp_proxy, theme, panel_name } = req.body;
-  if (panel_domain !== undefined) S('panel_domain', panel_domain.trim());
-  if (tcp_proxy !== undefined) S('tcp_proxy', tcp_proxy.trim());
-  if (theme !== undefined) S('theme', theme);
-  if (panel_name !== undefined) S('panel_name', panel_name.trim());
-  res.json({ success: true, message: 'ذخیره شد ✅' });
-});
-
-app.get('/api/server-info', auth, (req, res) => {
-  const domain = process.env.RAILWAY_PUBLIC_DOMAIN || req.get('host') || `localhost:${PORT}`;
-  res.json({ success: true, data: { domain, uptime: process.uptime(), memory: process.memoryUsage(), node: process.version, env: process.env.RAILWAY_ENVIRONMENT || 'local' } });
-});
-
-// ════════════════════════════════
-// INBOUNDS
-// ════════════════════════════════
-app.get('/api/inbounds', auth, (_, res) => {
-  try {
-    res.json({ success: true, data: db.prepare('SELECT i.*,COUNT(c.id) client_count FROM inbounds i LEFT JOIN clients c ON i.id=c.inbound_id AND c.enabled=1 GROUP BY i.id ORDER BY i.created_at DESC').all() });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-app.post('/api/inbounds', auth, (req, res) => {
-  try {
-    const { protocol, port, network, security, remark, path, host, serviceName, headerType, xhttpMode, tlsSni, externalProxy } = req.body;
-    if (!protocol || !port || !network) return res.status(400).json({ success: false, message: 'پروتکل، پورت و شبکه لازم است' });
-    const portN = parseInt(port);
-    if (isNaN(portN) || portN < 1 || portN > 65535) return res.status(400).json({ success: false, message: 'پورت نامعتبر' });
-    if (db.prepare('SELECT id FROM inbounds WHERE port=?').get(portN))
-      return res.status(400).json({ success: false, message: `پورت ${portN} قبلاً استفاده شده` });
-    const tag = `ib_${Date.now()}`;
-    const ss = buildSS(network, security, path, host, serviceName, headerType, xhttpMode, tlsSni);
-    db.prepare('INSERT INTO inbounds (tag,protocol,port,network,security,external_proxy,path,host,service_name,header_type,xhttp_mode,tls_sni,stream_settings,remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(tag, protocol, portN, network, security || 'none', externalProxy || '', path || '/', host || '', serviceName || 'grpc', headerType || 'none', xhttpMode || 'auto', tlsSni || '', JSON.stringify(ss), remark || `${protocol.toUpperCase()}-${network.toUpperCase()}-${portN}`);
-    res.json({ success: true, message: 'Inbound ایجاد شد ✅', data: db.prepare('SELECT * FROM inbounds WHERE tag=?').get(tag) });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-app.put('/api/inbounds/:id', auth, (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const ib = db.prepare('SELECT * FROM inbounds WHERE id=?').get(id);
-    if (!ib) return res.status(404).json({ success: false, message: 'یافت نشد' });
-    const { protocol, port, network, security, remark, enabled, path, host, serviceName, headerType, xhttpMode, tlsSni, externalProxy } = req.body;
-    const nn = network || ib.network, ns = security ?? ib.security;
-    const np = path ?? ib.path, nh = host ?? ib.host;
-    const ss = buildSS(nn, ns, np, nh, serviceName || ib.service_name, headerType || ib.header_type, xhttpMode || ib.xhttp_mode, tlsSni ?? ib.tls_sni);
-    db.prepare('UPDATE inbounds SET protocol=?,port=?,network=?,security=?,external_proxy=?,path=?,host=?,service_name=?,header_type=?,xhttp_mode=?,tls_sni=?,stream_settings=?,remark=?,enabled=? WHERE id=?')
-      .run(protocol || ib.protocol, port ? parseInt(port) : ib.port, nn, ns, externalProxy ?? ib.external_proxy, np, nh, serviceName || ib.service_name, headerType || ib.header_type, xhttpMode || ib.xhttp_mode, tlsSni ?? ib.tls_sni, JSON.stringify(ss), remark || ib.remark, enabled !== undefined ? (enabled ? 1 : 0) : ib.enabled, id);
-    res.json({ success: true, message: 'آپدیت شد ✅', data: db.prepare('SELECT * FROM inbounds WHERE id=?').get(id) });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-app.delete('/api/inbounds/:id', auth, (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (!db.prepare('SELECT id FROM inbounds WHERE id=?').get(id)) return res.status(404).json({ success: false, message: 'یافت نشد' });
-    db.prepare('DELETE FROM inbounds WHERE id=?').run(id);
-    res.json({ success: true, message: 'حذف شد' });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-// ════════════════════════════════
-// CLIENTS
-// ════════════════════════════════
-app.get('/api/clients/stats/overview', auth, (_, res) => {
-  try {
-    const now = new Date().toISOString();
-    res.json({ success: true, data: { total: db.prepare('SELECT COUNT(*) c FROM clients').get().c, active: db.prepare('SELECT COUNT(*) c FROM clients WHERE enabled=1 AND (expire_date IS NULL OR expire_date>?)').get(now).c, expired: db.prepare('SELECT COUNT(*) c FROM clients WHERE expire_date IS NOT NULL AND expire_date<=?').get(now).c, total_inbounds: db.prepare('SELECT COUNT(*) c FROM inbounds').get().c, total_traffic: db.prepare('SELECT COALESCE(SUM(traffic_used),0) t FROM clients').get().t } });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-app.get('/api/clients', auth, (req, res) => {
-  try {
-    const { inbound_id, search } = req.query;
-    let q = 'SELECT c.*,i.protocol i_protocol,i.network i_network,i.port i_port,i.remark inbound_remark,i.external_proxy i_proxy,i.security i_security,i.path i_path,i.host i_host,i.service_name,i.header_type,i.xhttp_mode,i.tls_sni FROM clients c JOIN inbounds i ON c.inbound_id=i.id WHERE 1=1';
-    const p = [];
-    if (inbound_id) { q += ' AND c.inbound_id=?'; p.push(parseInt(inbound_id)); }
-    if (search) { q += ' AND (c.name LIKE ? OR c.email LIKE ?)'; p.push(`%${search}%`, `%${search}%`); }
-    q += ' ORDER BY c.created_at DESC';
-    const now = new Date();
-    res.json({ success: true, data: db.prepare(q).all(...p).map(c => ({ ...c, is_expired: c.expire_date ? new Date(c.expire_date) < now : false })) });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-app.post('/api/clients', auth, (req, res) => {
-  try {
-    const { inbound_id, name, email, traffic_limit_gb, expire_days, max_connections, external_proxy, custom_uuid } = req.body;
-    if (!inbound_id || !name) return res.status(400).json({ success: false, message: 'Inbound و نام لازم است' });
-    const ib = db.prepare('SELECT * FROM inbounds WHERE id=? AND enabled=1').get(parseInt(inbound_id));
-    if (!ib) return res.status(404).json({ success: false, message: 'Inbound یافت نشد' });
-    const uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const uuid = (custom_uuid && uuidRx.test(custom_uuid.trim())) ? custom_uuid.trim() : uuidv4();
-    const sub = uuidv4().replace(/-/g, '') + uuidv4().replace(/-/g, '');
-    const tBytes = traffic_limit_gb ? Math.floor(parseFloat(traffic_limit_gb) * 1024 * 1024 * 1024) : 0;
-    let expDate = null;
-    if (expire_days && parseInt(expire_days) > 0) { const d = new Date(); d.setDate(d.getDate() + parseInt(expire_days)); expDate = d.toISOString(); }
-    const mail = email?.trim() || `${name.trim().toLowerCase().replace(/[^a-z0-9]/g, '.')}.${Date.now()}@persian.panel`;
-    const r = db.prepare('INSERT INTO clients (inbound_id,name,uuid,email,traffic_limit,traffic_used,expire_date,max_connections,external_proxy,enabled,sub_token) VALUES (?,?,?,?,?,0,?,?,?,1,?)').run(parseInt(inbound_id), name.trim(), uuid, mail, tBytes, expDate, parseInt(max_connections) || 0, external_proxy?.trim() || '', sub);
-    res.json({ success: true, message: 'کلاینت ایجاد شد ✅', data: db.prepare('SELECT * FROM clients WHERE id=?').get(r.lastInsertRowid) });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-app.put('/api/clients/:id', auth, (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const c = db.prepare('SELECT * FROM clients WHERE id=?').get(id);
-    if (!c) return res.status(404).json({ success: false, message: 'یافت نشد' });
-    const { name, email, traffic_limit_gb, expire_days, max_connections, enabled, external_proxy, reset_traffic } = req.body;
-    const tBytes = traffic_limit_gb !== undefined ? Math.floor(parseFloat(traffic_limit_gb) * 1024 * 1024 * 1024) : c.traffic_limit;
-    let expDate = c.expire_date;
-    if (expire_days !== undefined) { if (!expire_days || parseInt(expire_days) <= 0) expDate = null; else { const d = new Date(); d.setDate(d.getDate() + parseInt(expire_days)); expDate = d.toISOString(); } }
-    db.prepare('UPDATE clients SET name=?,email=?,traffic_limit=?,traffic_used=?,expire_date=?,max_connections=?,enabled=?,external_proxy=? WHERE id=?').run(name || c.name, email || c.email, tBytes, reset_traffic ? 0 : c.traffic_used, expDate, max_connections !== undefined ? parseInt(max_connections) : c.max_connections, enabled !== undefined ? (enabled ? 1 : 0) : c.enabled, external_proxy !== undefined ? external_proxy.trim() : c.external_proxy, id);
-    res.json({ success: true, message: 'آپدیت شد ✅', data: db.prepare('SELECT * FROM clients WHERE id=?').get(id) });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-app.delete('/api/clients/:id', auth, (req, res) => {
-  try {
-    if (!db.prepare('SELECT id FROM clients WHERE id=?').get(parseInt(req.params.id))) return res.status(404).json({ success: false, message: 'یافت نشد' });
-    db.prepare('DELETE FROM clients WHERE id=?').run(parseInt(req.params.id));
-    res.json({ success: true, message: 'حذف شد' });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-app.post('/api/clients/:id/reset-traffic', auth, (req, res) => {
-  try { db.prepare('UPDATE clients SET traffic_used=0 WHERE id=?').run(parseInt(req.params.id)); res.json({ success: true, message: 'ری‌ست شد' }); }
-  catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-app.get('/api/clients/:id/config', auth, (req, res) => {
-  try {
-    const c = db.prepare('SELECT * FROM clients WHERE id=?').get(parseInt(req.params.id));
-    if (!c) return res.status(404).json({ success: false, message: 'یافت نشد' });
-    const ib = db.prepare('SELECT * FROM inbounds WHERE id=?').get(c.inbound_id);
-    if (!ib) return res.status(404).json({ success: false, message: 'Inbound یافت نشد' });
-    res.json({ success: true, data: getConfigs(c, ib) });
-  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-});
-
-// ════════════════════════════════
-// SUBSCRIPTION
-// ════════════════════════════════
-function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-
-app.get('/sub/:token', (req, res) => {
-  try {
-    const { token } = req.params;
-    const c = db.prepare('SELECT * FROM clients WHERE sub_token=?').get(token);
-    if (!c || !c.enabled) return res.status(404).send('Not Found');
-    if (c.expire_date && new Date(c.expire_date) < new Date()) return res.status(403).send('Expired');
-    if (c.traffic_limit > 0 && c.traffic_used >= c.traffic_limit) return res.status(403).send('Traffic Exceeded');
-    const ib = db.prepare('SELECT * FROM inbounds WHERE id=? AND enabled=1').get(c.inbound_id);
-    if (!ib) return res.status(404).send('Not Found');
-    const link = makeLink(c, ib);
-    if (!link) return res.status(500).send('Config Error');
-    const encoded = Buffer.from(link).toString('base64');
-    const exp = c.expire_date ? Math.floor(new Date(c.expire_date).getTime() / 1000) : 0;
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Subscription-Userinfo', `upload=0; download=${c.traffic_used}; total=${c.traffic_limit || 0}; expire=${exp}`);
-    res.setHeader('Profile-Title', Buffer.from(`PersianPanel-${c.name}`).toString('base64'));
-    res.setHeader('Profile-Update-Interval', '12');
-    res.send(encoded);
-  } catch (e) { res.status(500).send('Error'); }
-});
-
-app.get('/sub/html/:token', (req, res) => {
-  try {
-    const c = db.prepare('SELECT * FROM clients WHERE sub_token=?').get(req.params.token);
-    if (!c) return res.status(404).send('<h1>404</h1>');
-    const ib = db.prepare('SELECT * FROM inbounds WHERE id=?').get(c.inbound_id);
-    if (!ib) return res.status(404).send('<h1>Not Found</h1>');
-    const now = new Date();
-    const isExp = c.expire_date && new Date(c.expire_date) < now;
-    const isTraf = c.traffic_limit > 0 && c.traffic_used >= c.traffic_limit;
-    const configs = getConfigs(c, ib);
-    const subUrl = `${req.protocol}://${req.get('host')}/sub/${c.sub_token}`;
-    const tU = (c.traffic_used / 1073741824).toFixed(2);
-    const tT = c.traffic_limit > 0 ? (c.traffic_limit / 1073741824).toFixed(0) : '∞';
-    const pct = c.traffic_limit > 0 ? Math.min(100, (c.traffic_used / c.traffic_limit) * 100) : 0;
-    const expD = c.expire_date ? new Date(c.expire_date).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }) : 'نامحدود';
-    const dL = c.expire_date ? Math.max(0, Math.ceil((new Date(c.expire_date) - now) / 86400000)) : '∞';
-    const ok = !isExp && !isTraf && c.enabled;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(`<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Persian Panel — ${esc(c.name)}</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Persian Panel</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#08081a,#13082c,#0b1828);min-height:100vh;color:#e0e0ff;padding:14px}
-.w{max-width:560px;margin:0 auto}
-.hdr{text-align:center;padding:22px;background:rgba(255,255,255,.04);border:1px solid rgba(120,100,255,.18);border-radius:18px;margin-bottom:13px;backdrop-filter:blur(10px)}
-.logo{font-size:18px;font-weight:900;background:linear-gradient(135deg,#a78bfa,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.name{font-size:19px;font-weight:700;margin:6px 0 2px}
-.email{font-size:11px;color:#8888aa}
-.badge{display:inline-block;padding:3px 14px;border-radius:20px;font-size:11px;font-weight:700;margin-top:8px}
-.ok{background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.25)}
-.bad{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:13px}
-@media(min-width:420px){.grid{grid-template-columns:repeat(4,1fr)}}
-.sc{background:rgba(255,255,255,.04);border:1px solid rgba(120,100,255,.15);border-radius:11px;padding:11px;text-align:center}
-.sv{font-size:19px;font-weight:800;color:#a78bfa}
-.sl{font-size:10px;color:#8888aa;margin-top:2px}
-.pb-sec{background:rgba(255,255,255,.04);border:1px solid rgba(120,100,255,.15);border-radius:11px;padding:12px;margin-bottom:13px}
-.pb-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px}
-.pb{background:rgba(255,255,255,.08);border-radius:8px;height:7px;overflow:hidden}
-.pf{height:100%;border-radius:8px}
-.sub-box{background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);border-radius:11px;padding:12px;margin-bottom:12px}
-.sub-t{font-size:12px;font-weight:700;color:#a78bfa;margin-bottom:6px}
-.sub-l{font-family:monospace;font-size:10px;word-break:break-all;color:#c4b5fd;background:rgba(0,0,0,.2);border-radius:6px;padding:7px;margin-bottom:7px;line-height:1.5}
-.cfg{background:rgba(255,255,255,.04);border:1px solid rgba(120,100,255,.15);border-radius:12px;padding:13px;margin-bottom:10px}
-.cfg-h{display:flex;gap:5px;align-items:center;margin-bottom:9px;flex-wrap:wrap}
-.tpr{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
-.tnt{background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.25);padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600}
-.tabs{display:flex;gap:3px;background:rgba(255,255,255,.04);border:1px solid rgba(120,100,255,.12);border-radius:7px;padding:2px;margin-bottom:8px}
-.tab{flex:1;padding:6px;border-radius:6px;border:none;background:transparent;color:#8888aa;cursor:pointer;font-size:11px;font-weight:700;transition:all .2s;font-family:inherit}
-.tab.on{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff}
-.link{background:rgba(0,0,0,.28);border:1px solid rgba(100,100,255,.1);border-radius:7px;padding:8px;font-size:10px;color:#a78bfa;word-break:break-all;font-family:monospace;margin:7px 0;line-height:1.5}
-.btn{display:flex;align-items:center;justify-content:center;gap:4px;padding:9px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;width:100%;transition:all .2s;font-family:inherit}
-.btnp{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff}
-.btnp:hover{opacity:.88}
-.btns{background:rgba(255,255,255,.06);border:1px solid rgba(120,100,255,.18);color:#e0e0ff}
-.brow{display:flex;gap:5px;margin-top:7px}
-.brow .btn{flex:1}
-.qrw{text-align:center;padding:6px}
-.qrw img{border-radius:9px;border:3px solid rgba(167,139,250,.2)}
-.al{padding:9px 12px;border-radius:8px;margin-bottom:11px;font-size:11px;text-align:center;font-weight:600;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#f87171}
-.ftr{text-align:center;color:#444466;font-size:10px;margin-top:14px;padding:10px}
-.toast-c{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;gap:4px;align-items:center}
-.toast{background:rgba(15,15,35,.95);border:1px solid rgba(124,58,237,.3);border-radius:8px;padding:8px 15px;font-size:11px;color:#e0e0ff;backdrop-filter:blur(10px)}
+:root{
+  --bg:#0f0f1a;--bg2:#1a1a2e;--bg3:#16213e;
+  --card:#1e1e3a;--card2:#252545;
+  --accent:#7c3aed;--accent2:#6d28d9;--accent3:#8b5cf6;
+  --green:#10b981;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --border:#2d2d5a;--shadow:0 4px 24px rgba(0,0,0,.4);
+  --radius:12px;--radius2:8px;
+}
+[data-theme="light"]{
+  --bg:#f1f5f9;--bg2:#e2e8f0;--bg3:#cbd5e1;
+  --card:#ffffff;--card2:#f8fafc;
+  --text:#1e293b;--text2:#475569;--text3:#94a3b8;
+  --border:#e2e8f0;--shadow:0 4px 24px rgba(0,0,0,.1);
+}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:.3s}
+/* ══════════ SCROLLBAR ══════════ */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
+/* ══════════ LOGIN ══════════ */
+#loginPage{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--bg) 0%,var(--bg3) 100%)}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:48px 40px;width:100%;max-width:420px;box-shadow:var(--shadow)}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo .icon{font-size:56px;display:block;margin-bottom:12px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.login-logo h1{font-size:28px;font-weight:700;background:linear-gradient(135deg,var(--accent3),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-logo p{color:var(--text2);font-size:14px;margin-top:4px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;margin-bottom:8px;font-size:14px;color:var(--text2);font-weight:500}
+.form-group input{width:100%;padding:12px 16px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius2);color:var(--text);font-size:15px;transition:.2s;outline:none}
+.form-group input:focus{border-color:var(--accent);background:var(--card2)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border:none;border-radius:var(--radius2);cursor:pointer;font-size:14px;font-weight:600;transition:.2s;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;width:100%;justify-content:center;padding:14px}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-success{background:var(--green);color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-warning{background:var(--yellow);color:#fff}
+.btn-info{background:var(--blue);color:#fff}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--card2);color:var(--text)}
+.btn-sm{padding:7px 14px;font-size:13px}
+.btn-xs{padding:5px 10px;font-size:12px}
+/* ══════════ LAYOUT ══════════ */
+#app{display:none;min-height:100vh;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:64px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.topbar-logo{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;color:var(--accent3)}
+.topbar-logo span{font-size:28px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.main-layout{display:flex;flex:1}
+.sidebar{width:240px;background:var(--card);border-left:1px solid var(--border);padding:16px 0;position:sticky;top:64px;height:calc(100vh - 64px);overflow-y:auto;flex-shrink:0}
+.nav-item{display:flex;align-items:center;gap:12px;padding:12px 20px;cursor:pointer;transition:.2s;color:var(--text2);font-size:14px;font-weight:500;border-right:3px solid transparent}
+.nav-item:hover{background:var(--card2);color:var(--text)}
+.nav-item.active{background:rgba(124,58,237,.15);color:var(--accent3);border-right-color:var(--accent)}
+.nav-item .icon{font-size:20px;width:24px;text-align:center}
+.nav-section{padding:12px 20px 4px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.content{flex:1;padding:24px;overflow-y:auto;max-height:calc(100vh - 64px)}
+/* ══════════ CARDS ══════════ */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.card-title{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+/* ══════════ STATS ══════════ */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;display:flex;align-items:center;gap:16px;transition:.2s}
+.stat-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.stat-icon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.stat-icon.purple{background:rgba(124,58,237,.2)}
+.stat-icon.green{background:rgba(16,185,129,.2)}
+.stat-icon.red{background:rgba(239,68,68,.2)}
+.stat-icon.blue{background:rgba(59,130,246,.2)}
+.stat-icon.yellow{background:rgba(245,158,11,.2)}
+.stat-value{font-size:28px;font-weight:800;line-height:1}
+.stat-label{font-size:13px;color:var(--text2);margin-top:4px}
+/* ══════════ TABLE ══════════ */
+.table-wrap{overflow-x:auto;border-radius:var(--radius2)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead{background:var(--bg2)}
+th{padding:12px 16px;text-align:right;font-weight:600;color:var(--text2);font-size:13px;border-bottom:1px solid var(--border)}
+td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(124,58,237,.04)}
+/* ══════════ BADGES ══════════ */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.badge-green{background:rgba(16,185,129,.2);color:var(--green)}
+.badge-red{background:rgba(239,68,68,.2);color:var(--red)}
+.badge-yellow{background:rgba(245,158,11,.2);color:var(--yellow)}
+.badge-blue{background:rgba(59,130,246,.2);color:var(--blue)}
+.badge-purple{background:rgba(124,58,237,.2);color:var(--accent3)}
+.badge-gray{background:rgba(100,116,139,.2);color:var(--text3)}
+/* ══════════ MODAL ══════════ */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:0;width:100%;max-width:560px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}
+.modal-close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:.2s;line-height:1}
+.modal-close:hover{background:var(--card2);color:var(--red)}
+.modal-body{padding:24px;overflow-y:auto;flex:1}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+/* ══════════ FORMS ══════════ */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;margin-bottom:6px;font-size:13px;color:var(--text2);font-weight:500}
+.form-control{width:100%;padding:10px 14px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius2);color:var(--text);font-size:14px;outline:none;transition:.2s}
+.form-control:focus{border-color:var(--accent);background:var(--bg3)}
+select.form-control option{background:var(--bg2)}
+.form-hint{font-size:12px;color:var(--text3);margin-top:4px}
+/* ══════════ TOGGLE ══════════ */
+.toggle{position:relative;display:inline-block;width:44px;height:24px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--bg3);border-radius:12px;cursor:pointer;transition:.3s;border:1px solid var(--border)}
+.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;right:2px;top:2px;background:var(--text3);border-radius:50%;transition:.3s}
+.toggle input:checked+.toggle-slider{background:var(--accent)}
+.toggle input:checked+.toggle-slider:before{right:auto;left:2px;background:#fff}
+/* ══════════ PROGRESS ══════════ */
+.progress-bar{background:var(--bg3);border-radius:4px;height:6px;overflow:hidden;margin-top:4px}
+.progress-fill{height:100%;border-radius:4px;transition:.5s}
+.progress-fill.green{background:var(--green)}
+.progress-fill.yellow{background:var(--yellow)}
+.progress-fill.red{background:var(--red)}
+/* ══════════ ALERT ══════════ */
+#toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast-item{padding:12px 24px;border-radius:10px;font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:fadeIn .3s ease;pointer-events:all;cursor:pointer}
+.toast-item.success{background:var(--green);color:#fff}
+.toast-item.error{background:var(--red);color:#fff}
+.toast-item.info{background:var(--blue);color:#fff}
+.toast-item.warning{background:var(--yellow);color:#fff}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+/* ══════════ CONFIG BOX ══════════ */
+.config-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 14px;font-family:monospace;font-size:12px;word-break:break-all;color:var(--text2);position:relative;margin:8px 0}
+.config-box .copy-btn{position:absolute;top:8px;left:8px;padding:4px 10px;font-size:11px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;opacity:.8;transition:.2s}
+.config-box .copy-btn:hover{opacity:1}
+/* ══════════ EMPTY STATE ══════════ */
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-state .icon{font-size:56px;margin-bottom:12px}
+.empty-state p{font-size:15px}
+/* ══════════ SEARCH ══════════ */
+.search-box{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.search-input{flex:1;padding:10px 16px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--radius2);color:var(--text);font-size:14px;outline:none}
+.search-input:focus{border-color:var(--accent)}
+/* ══════════ TRAFFIC ══════════ */
+.traffic-cell{min-width:120px}
+/* ══════════ RESPONSIVE ══════════ */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .form-row{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .content{padding:16px}
+  .modal{max-width:100%}
+}
+/* ══════════ LOADER ══════════ */
+.spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.page-loader{display:flex;align-items:center;justify-content:center;min-height:200px}
+/* ══════════ QR ══════════ */
+.qr-wrap{display:flex;align-items:center;justify-content:center;padding:16px;background:#fff;border-radius:var(--radius);margin:12px auto;width:fit-content}
+/* ══════════ TABS ══════════ */
+.tabs{display:flex;gap:4px;background:var(--bg2);border-radius:var(--radius2);padding:4px;margin-bottom:20px}
+.tab{flex:1;padding:8px 16px;border:none;background:transparent;color:var(--text2);border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;transition:.2s;text-align:center}
+.tab.active{background:var(--accent);color:#fff}
+/* ══════════ COPY FEEDBACK ══════════ */
+.copied{background:var(--green)!important}
 </style>
 </head>
 <body>
-<div class="w">
-<div class="hdr">
-  <div class="logo">🔮 Persian Panel</div>
-  <div class="name">${esc(c.name)}</div>
-  <div class="email">${esc(c.email)}</div>
-  <div class="badge ${ok ? 'ok' : 'bad'}">${ok ? '✅ فعال' : isExp ? '⏰ منقضی' : isTraf ? '📦 تمام' : '🚫 غیرفعال'}</div>
-</div>
-${!ok ? `<div class="al">${isExp ? '⚠️ اشتراک منقضی — لطفاً تمدید کنید' : isTraf ? '⚠️ ترافیک تمام شده' : '🚫 اشتراک غیرفعال'}</div>` : ''}
-<div class="grid">
-  <div class="sc"><div class="sv">${tU}</div><div class="sl">GB مصرف</div></div>
-  <div class="sc"><div class="sv">${tT}</div><div class="sl">GB کل</div></div>
-  <div class="sc"><div class="sv">${dL}</div><div class="sl">روز مانده</div></div>
-  <div class="sc"><div class="sv">${c.max_connections > 0 ? c.max_connections : '∞'}</div><div class="sl">اتصال</div></div>
-</div>
-${c.traffic_limit > 0 ? `<div class="pb-sec"><div class="pb-row"><span>ترافیک</span><span style="color:#a78bfa;font-weight:700">${pct.toFixed(1)}%</span></div><div class="pb"><div class="pf" style="width:${pct}%;background:${pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : '#7c3aed'}"></div></div><div style="font-size:9px;color:#8888aa;text-align:center;margin-top:4px">${tU} از ${tT} GB</div></div>` : ''}
-<div class="sub-box">
-  <div class="sub-t">🔗 لینک ساب‌اسکریپشن</div>
-  <div class="sub-l" id="SURL">${esc(subUrl)}</div>
-  <button class="btn btnp" onclick="cp('SURL',this)">📋 کپی لینک ساب</button>
-</div>
-<div style="font-size:13px;font-weight:700;margin:12px 0 8px">📋 کانفیگ‌ها</div>
-${configs.map((cfg, i) => `
-<div class="cfg">
-  <div class="cfg-h"><span class="tpr">${esc(cfg.type.toUpperCase())}</span><span class="tnt">${esc(cfg.network.toUpperCase())}</span></div>
-  <div class="tabs">
-    <button class="tab on" onclick="sw(${i},'l',this)">🔗 لینک</button>
-    <button class="tab" onclick="sw(${i},'q',this)">📱 QR</button>
+
+<!-- ══════════ TOAST ══════════ -->
+<div id="toast"></div>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="loginPage">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="icon">🔮</span>
+      <h1>Persian Panel</h1>
+      <p>مدیریت هوشمند VPN</p>
+    </div>
+    <form id="loginForm">
+      <div class="form-group">
+        <label>نام کاربری</label>
+        <input type="text" id="loginUser" placeholder="admin" autocomplete="username" required/>
+      </div>
+      <div class="form-group">
+        <label>رمز عبور</label>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required/>
+      </div>
+      <button type="submit" class="btn btn-primary" id="loginBtn">
+        <span>ورود به پنل</span>
+      </button>
+    </form>
   </div>
-  <div id="TL${i}">
-    <div class="link" id="LNK${i}">${esc(cfg.link)}</div>
-    <button class="btn btnp" onclick="cp('LNK${i}',this)">📋 کپی کانفیگ</button>
-  </div>
-  <div id="TQ${i}" style="display:none">
-    <div class="qrw"><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(cfg.link)}&margin=8&color=a78bfa&bgcolor=080818" width="160" height="160" loading="lazy" alt="QR"></div>
-    <div style="text-align:center;font-size:10px;color:#8888aa;margin-top:4px">با دوربین اسکن کنید</div>
-  </div>
-</div>`).join('')}
-<div class="ftr"><div>🔮 Persian Panel</div><div style="margin-top:3px">📅 انقضا: ${expD}</div></div>
 </div>
-<div class="toast-c" id="TC"></div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <span>🔮</span>
+      <span id="panelNameTop">Persian Panel</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-ghost btn-sm" id="themeToggleBtn" title="تغییر تم">🌙</button>
+      <span id="topUsername" style="color:var(--text2);font-size:14px"></span>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">🚪 خروج</button>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="nav-section">منو</div>
+      <div class="nav-item active" onclick="showPage('dashboard')">
+        <span class="icon">📊</span> داشبورد
+      </div>
+      <div class="nav-item" onclick="showPage('inbounds')">
+        <span class="icon">🔌</span> Inbounds
+      </div>
+      <div class="nav-item" onclick="showPage('clients')">
+        <span class="icon">👥</span> کلاینت‌ها
+      </div>
+      <div class="nav-section">تنظیمات</div>
+      <div class="nav-item" onclick="showPage('settings')">
+        <span class="icon">⚙️</span> تنظیمات
+      </div>
+      <div class="nav-item" onclick="showPage('profile')">
+        <span class="icon">👤</span> پروفایل
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- ══ DASHBOARD ══ -->
+      <div id="page-dashboard" class="page">
+        <h2 style="margin-bottom:20px;font-size:22px">📊 داشبورد</h2>
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card"><div class="stat-icon purple">👥</div><div><div class="stat-value" id="s-total">—</div><div class="stat-label">کل کاربران</div></div></div>
+          <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value" id="s-active">—</div><div class="stat-label">کاربران فعال</div></div></div>
+          <div class="stat-card"><div class="stat-icon red">⏰</div><div><div class="stat-value" id="s-expired">—</div><div class="stat-label">منقضی‌شده</div></div></div>
+          <div class="stat-card"><div class="stat-icon blue">🔌</div><div><div class="stat-value" id="s-inbounds">—</div><div class="stat-label">Inbounds</div></div></div>
+          <div class="stat-card"><div class="stat-icon yellow">📦</div><div><div class="stat-value" id="s-traffic">—</div><div class="stat-label">کل ترافیک مصرفی</div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🖥️ اطلاعات سرور</div></div>
+          <div id="serverInfo" style="color:var(--text2);font-size:14px;line-height:2">در حال بارگذاری...</div>
+        </div>
+      </div>
+
+      <!-- ══ INBOUNDS ══ -->
+      <div id="page-inbounds" class="page" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <h2 style="font-size:22px">🔌 Inbounds</h2>
+          <button class="btn btn-primary btn-sm" onclick="openAddInbound()">➕ افزودن Inbound</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>نام</th><th>پروتکل</th><th>پورت</th><th>شبکه</th><th>امنیت</th><th>کاربران</th><th>وضعیت</th><th>عملیات</th>
+              </tr></thead>
+              <tbody id="inboundsTable"><tr><td colspan="8" class="empty-state"><div class="icon">⏳</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ CLIENTS ══ -->
+      <div id="page-clients" class="page" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <h2 style="font-size:22px">👥 کلاینت‌ها</h2>
+          <button class="btn btn-primary btn-sm" onclick="openAddClient()">➕ افزودن کاربر</button>
+        </div>
+        <div class="search-box">
+          <input class="search-input" id="clientSearch" placeholder="🔍 جستجو در نام / ایمیل..." oninput="debounceSearch()"/>
+          <select class="form-control" id="filterInbound" style="width:200px" onchange="loadClients()">
+            <option value="">همه Inboundها</option>
+          </select>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>نام</th><th>Inbound</th><th>ترافیک</th><th>انقضا</th><th>وضعیت</th><th>عملیات</th>
+              </tr></thead>
+              <tbody id="clientsTable"><tr><td colspan="6" class="empty-state"><div class="icon">⏳</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ SETTINGS ══ -->
+      <div id="page-settings" class="page" style="display:none">
+        <h2 style="margin-bottom:20px;font-size:22px">⚙️ تنظیمات</h2>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🌐 تنظیمات پنل</div></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>نام پنل</label>
+              <input type="text" class="form-control" id="set-name"/>
+            </div>
+            <div class="form-group">
+              <label>دامنه پنل</label>
+              <input type="text" class="form-control" id="set-domain" dir="ltr"/>
+              <div class="form-hint">برای تولید لینک‌های کانفیگ استفاده می‌شود</div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>TCP Proxy</label>
+              <input type="text" class="form-control" id="set-tcp" dir="ltr" placeholder="1.2.3.4:443"/>
+              <div class="form-hint">اگر می‌خواهید آدرس را override کنید</div>
+            </div>
+            <div class="form-group">
+              <label>تم</label>
+              <select class="form-control" id="set-theme">
+                <option value="dark">🌙 تاریک</option>
+                <option value="light">☀️ روشن</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveSettings()">💾 ذخیره تنظیمات</button>
+        </div>
+      </div>
+
+      <!-- ══ PROFILE ══ -->
+      <div id="page-profile" class="page" style="display:none">
+        <h2 style="margin-bottom:20px;font-size:22px">👤 پروفایل</h2>
+        <div class="card" style="max-width:460px">
+          <div class="card-header"><div class="card-title">🔑 تغییر اطلاعات</div></div>
+          <div class="form-group">
+            <label>نام کاربری جدید</label>
+            <input type="text" class="form-control" id="new-username" dir="ltr"/>
+          </div>
+          <div class="form-group">
+            <label>رمز عبور فعلی</label>
+            <input type="password" class="form-control" id="cur-pass"/>
+          </div>
+          <div class="form-group">
+            <label>رمز عبور جدید</label>
+            <input type="password" class="form-control" id="new-pass"/>
+          </div>
+          <button class="btn btn-primary" onclick="changePassword()">💾 ذخیره</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: INBOUND ══════════ -->
+<div class="modal-overlay" id="modalInbound">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalInboundTitle">➕ افزودن Inbound</h3>
+      <button class="modal-close" onclick="closeModal('modalInbound')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ib-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label>پروتکل *</label>
+          <select class="form-control" id="ib-protocol">
+            <option value="vless">VLESS</option>
+            <option value="vmess">VMess</option>
+            <option value="trojan">Trojan</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>پورت *</label>
+          <input type="number" class="form-control" id="ib-port" dir="ltr" placeholder="443"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>شبکه *</label>
+          <select class="form-control" id="ib-network" onchange="updateNetworkFields()">
+            <option value="tcp">TCP</option>
+            <option value="ws">WebSocket</option>
+            <option value="grpc">gRPC</option>
+            <option value="httpupgrade">HTTPUpgrade</option>
+            <option value="xhttp">XHTTP</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>امنیت</label>
+          <select class="form-control" id="ib-security">
+            <option value="none">none</option>
+            <option value="tls">TLS</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>نام / توضیح</label>
+        <input type="text" class="form-control" id="ib-remark" placeholder="مثلاً: WS-TLS-CDN"/>
+      </div>
+      <div id="ib-network-fields">
+        <div class="form-row">
+          <div class="form-group" id="fg-path">
+            <label>Path</label>
+            <input type="text" class="form-control" id="ib-path" dir="ltr" placeholder="/"/>
+          </div>
+          <div class="form-group" id="fg-host">
+            <label>Host</label>
+            <input type="text" class="form-control" id="ib-host" dir="ltr"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" id="fg-sni">
+            <label>TLS SNI</label>
+            <input type="text" class="form-control" id="ib-sni" dir="ltr"/>
+          </div>
+          <div class="form-group" id="fg-service">
+            <label>Service Name (gRPC)</label>
+            <input type="text" class="form-control" id="ib-service" dir="ltr" placeholder="grpc"/>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>External Proxy</label>
+        <input type="text" class="form-control" id="ib-proxy" dir="ltr" placeholder="1.1.1.1:443"/>
+        <div class="form-hint">آدرس و پورت جایگزین برای کانفیگ</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalInbound')">انصراف</button>
+      <button class="btn btn-primary" onclick="saveInbound()">💾 ذخیره</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: CLIENT ══════════ -->
+<div class="modal-overlay" id="modalClient">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalClientTitle">➕ افزودن کاربر</h3>
+      <button class="modal-close" onclick="closeModal('modalClient')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cl-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label>نام *</label>
+          <input type="text" class="form-control" id="cl-name" placeholder="علی"/>
+        </div>
+        <div class="form-group">
+          <label>Inbound *</label>
+          <select class="form-control" id="cl-inbound"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>حجم ترافیک (GB)</label>
+          <input type="number" class="form-control" id="cl-traffic" dir="ltr" placeholder="0 = نامحدود"/>
+        </div>
+        <div class="form-group">
+          <label>مدت اعتبار (روز)</label>
+          <input type="number" class="form-control" id="cl-expire" dir="ltr" placeholder="0 = نامحدود"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>حداکثر اتصال همزمان</label>
+          <input type="number" class="form-control" id="cl-maxconn" dir="ltr" placeholder="0 = نامحدود"/>
+        </div>
+        <div class="form-group">
+          <label>ایمیل</label>
+          <input type="text" class="form-control" id="cl-email" dir="ltr" placeholder="اختیاری"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>UUID دلخواه</label>
+        <input type="text" class="form-control" id="cl-uuid" dir="ltr" placeholder="خالی = خودکار"/>
+        <div class="form-hint">فقط UUID معتبر قبول می‌شود</div>
+      </div>
+      <div class="form-group">
+        <label>External Proxy</label>
+        <input type="text" class="form-control" id="cl-proxy" dir="ltr" placeholder="اختیاری"/>
+      </div>
+      <!-- فقط در ویرایش -->
+      <div id="cl-edit-fields" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg2);border-radius:var(--radius2)">
+          <span style="font-size:14px">وضعیت کاربر</span>
+          <label class="toggle"><input type="checkbox" id="cl-enabled"/><span class="toggle-slider"></span></label>
+        </div>
+        <div style="margin-top:12px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
+            <input type="checkbox" id="cl-reset-traffic" style="width:16px;height:16px"/>
+            ریست ترافیک
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modalClient')">انصراف</button>
+      <button class="btn btn-primary" onclick="saveClient()">💾 ذخیره</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: CONFIG ══════════ -->
+<div class="modal-overlay" id="modalConfig">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <h3>📋 کانفیگ کاربر</h3>
+      <button class="modal-close" onclick="closeModal('modalConfig')">✕</button>
+    </div>
+    <div class="modal-body" id="configBody"></div>
+  </div>
+</div>
+
 <script>
-function cp(id,btn){const t=document.getElementById(id).textContent.trim();navigator.clipboard.writeText(t).then(()=>{const o=btn.innerHTML;btn.innerHTML='✅ کپی شد!';btn.style.background='linear-gradient(135deg,#059669,#10b981)';setTimeout(()=>{btn.innerHTML=o;btn.style.background='';},2000);toast('✅ کپی شد');}).catch(()=>{const e=document.createElement('textarea');e.value=t;document.body.appendChild(e);e.select();document.execCommand('copy');document.body.removeChild(e);toast('✅ کپی شد');});}
-function sw(i,tab,el){document.getElementById('TL'+i).style.display=tab==='l'?'':'none';document.getElementById('TQ'+i).style.display=tab==='q'?'':'none';el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');}
-function toast(m){const tc=document.getElementById('TC');const t=document.createElement('div');t.className='toast';t.textContent=m;tc.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},2200);}
+// ══════════════════════════════════════
+// GLOBALS
+// ══════════════════════════════════════
+let currentPage = 'dashboard';
+let inboundsCache = [];
+let searchTimer = null;
+
+// ══════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════
+const $ = id => document.getElementById(id);
+const toast = (msg, type='info') => {
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.textContent = msg;
+  el.onclick = () => el.remove();
+  $('toast').appendChild(el);
+  setTimeout(() => el.style.opacity='0', 2700);
+  setTimeout(() => el.remove(), 3000);
+};
+const api = async (method, url, body) => {
+  const r = await fetch(url, {
+    method, headers: {'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return r.json();
+};
+const fmtBytes = b => {
+  if (!b || b===0) return '0 B';
+  const k=1024, s=['B','KB','MB','GB','TB'];
+  const i=Math.floor(Math.log(b)/Math.log(k));
+  return (b/Math.pow(k,i)).toFixed(2)+' '+s[i];
+};
+const fmtDate = d => d ? new Date(d).toLocaleDateString('fa-IR') : '∞';
+const daysLeft = d => {
+  if(!d) return '∞';
+  const diff = Math.ceil((new Date(d)-Date.now())/86400000);
+  return diff>0 ? diff+' روز' : 'منقضی';
+};
+async function copyText(text, btn) {
+  await navigator.clipboard.writeText(text).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+  if(btn){const old=btn.textContent;btn.textContent='✅';setTimeout(()=>btn.textContent=old,1500)}
+  else toast('کپی شد ✅','success');
+}
+const closeModal = id => { $(id).classList.remove('open'); };
+const openModal = id => { $(id).classList.add('open'); };
+
+// ══════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  const r = await api('GET','/api/auth/me');
+  if(r.success){ showApp(r.user); } else showLogin();
+});
+
+$('loginForm').onsubmit = async e => {
+  e.preventDefault();
+  const btn = $('loginBtn');
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+  const r = await api('POST','/api/auth/login',{
+    username: $('loginUser').value,
+    password: $('loginPass').value
+  });
+  btn.innerHTML = '<span>ورود به پنل</span>';
+  btn.disabled = false;
+  if(r.success){ showApp(r.user); }
+  else toast(r.message||'خطا در ورود','error');
+};
+
+function showLogin(){
+  $('loginPage').style.display='flex';
+  $('app').style.display='none';
+}
+function showApp(user){
+  $('loginPage').style.display='none';
+  $('app').style.display='flex';
+  $('topUsername').textContent = user.username;
+  loadSettings();
+  loadDashboard();
+  loadInboundsFilter();
+}
+async function logout(){
+  await api('POST','/api/auth/logout');
+  showLogin();
+  toast('خداحافظ! 👋','info');
+}
+
+// ══════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════
+function showPage(page){
+  document.querySelectorAll('.page').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  $('page-'+page).style.display='block';
+  currentPage = page;
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    if(n.getAttribute('onclick')?.includes(page)) n.classList.add('active');
+  });
+  if(page==='dashboard') loadDashboard();
+  if(page==='inbounds') loadInbounds();
+  if(page==='clients') loadClients();
+  if(page==='settings') loadSettingsPage();
+}
+
+// ══════════════════════════════════════
+// THEME
+// ══════════════════════════════════════
+$('themeToggleBtn').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur==='light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  $('themeToggleBtn').textContent = next==='light' ? '☀️' : '🌙';
+  api('POST','/api/settings',{theme:next});
+};
+
+// ══════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════
+async function loadDashboard(){
+  const [stats, info] = await Promise.all([
+    api('GET','/api/clients/stats/overview'),
+    api('GET','/api/server-info')
+  ]);
+  if(stats.success){
+    const d=stats.data;
+    $('s-total').textContent=d.total;
+    $('s-active').textContent=d.active;
+    $('s-expired').textContent=d.expired;
+    $('s-inbounds').textContent=d.total_inbounds;
+    $('s-traffic').textContent=fmtBytes(d.total_traffic);
+  }
+  if(info.success){
+    const d=info.data;
+    const up=Math.floor(d.uptime);
+    const h=Math.floor(up/3600), m=Math.floor((up%3600)/60);
+    $('serverInfo').innerHTML=`
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+        <div style="background:var(--bg2);padding:14px;border-radius:8px">
+          <div style="color:var(--text3);font-size:12px">دامنه</div>
+          <div style="font-family:monospace;margin-top:4px" dir="ltr">${d.domain}</div>
+        </div>
+        <div style="background:var(--bg2);padding:14px;border-radius:8px">
+          <div style="color:var(--text3);font-size:12px">Uptime</div>
+          <div style="margin-top:4px">${h}h ${m}m</div>
+        </div>
+        <div style="background:var(--bg2);padding:14px;border-radius:8px">
+          <div style="color:var(--text3);font-size:12px">Node.js</div>
+          <div style="font-family:monospace;margin-top:4px">${d.node}</div>
+        </div>
+        <div style="background:var(--bg2);padding:14px;border-radius:8px">
+          <div style="color:var(--text3);font-size:12px">محیط</div>
+          <div style="margin-top:4px">${d.env}</div>
+        </div>
+        <div style="background:var(--bg2);padding:14px;border-radius:8px">
+          <div style="color:var(--text3);font-size:12px">RAM</div>
+          <div style="margin-top:4px">${fmtBytes(d.memory?.heapUsed)} / ${fmtBytes(d.memory?.heapTotal)}</div>
+        </div>
+      </div>`;
+  }
+}
+
+// ══════════════════════════════════════
+// INBOUNDS
+// ══════════════════════════════════════
+async function loadInbounds(){
+  const r = await api('GET','/api/inbounds');
+  if(!r.success){toast(r.message,'error');return;}
+  inboundsCache = r.data;
+  const tb = $('inboundsTable');
+  if(!r.data.length){
+    tb.innerHTML=`<tr><td colspan="8"><div class="empty-state"><div class="icon">🔌</div><p>Inbound ای ندارید</p></div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = r.data.map(ib=>`
+    <tr>
+      <td><strong>${ib.remark}</strong><br><small style="color:var(--text3);font-family:monospace">${ib.tag}</small></td>
+      <td><span class="badge badge-purple">${ib.protocol.toUpperCase()}</span></td>
+      <td dir="ltr"><code>${ib.port}</code></td>
+      <td><span class="badge badge-blue">${ib.network.toUpperCase()}</span></td>
+      <td><span class="badge ${ib.security==='tls'?'badge-green':'badge-gray'}">${ib.security}</span></td>
+      <td>${ib.client_count} کاربر</td>
+      <td>
+        <label class="toggle" title="${ib.enabled?'فعال':'غیرفعال'}">
+          <input type="checkbox" ${ib.enabled?'checked':''} onchange="toggleInbound(${ib.id},this.checked)"/>
+          <span class="toggle-slider"></span>
+        </label>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-info btn-xs" onclick="editInbound(${ib.id})">✏️</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteInbound(${ib.id})">🗑️</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function loadInboundsFilter(){
+  const r = await api('GET','/api/inbounds');
+  if(!r.success) return;
+  inboundsCache = r.data;
+  const sel = $('filterInbound');
+  const clSel = $('cl-inbound');
+  r.data.forEach(ib=>{
+    const o1 = new Option(`${ib.remark} (${ib.protocol}:${ib.port})`, ib.id);
+    const o2 = new Option(`${ib.remark} (${ib.protocol}:${ib.port})`, ib.id);
+    sel.appendChild(o1);
+    clSel.appendChild(o2);
+  });
+}
+
+function updateNetworkFields(){
+  const net = $('ib-network').value;
+  $('fg-service').style.display = net==='grpc' ? 'block' : 'none';
+  $('fg-path').style.display = ['ws','httpupgrade','xhttp','tcp'].includes(net) ? 'block' : 'none';
+  $('fg-host').style.display = ['ws','httpupgrade','xhttp'].includes(net) ? 'block' : 'none';
+}
+
+function openAddInbound(){
+  $('ib-id').value='';
+  $('modalInboundTitle').textContent='➕ افزودن Inbound';
+  ['ib-protocol','ib-port','ib-remark','ib-path','ib-host','ib-sni','ib-service','ib-proxy'].forEach(id=>{
+    const el=$(id); if(el) el.value='';
+  });
+  $('ib-network').value='tcp';
+  $('ib-security').value='none';
+  $('ib-path').value='/';
+  updateNetworkFields();
+  openModal('modalInbound');
+}
+
+function editInbound(id){
+  const ib = inboundsCache.find(i=>i.id===id);
+  if(!ib) return;
+  $('ib-id').value=ib.id;
+  $('modalInboundTitle').textContent='✏️ ویرایش Inbound';
+  $('ib-protocol').value=ib.protocol;
+  $('ib-port').value=ib.port;
+  $('ib-network').value=ib.network;
+  $('ib-security').value=ib.security||'none';
+  $('ib-remark').value=ib.remark||'';
+  $('ib-path').value=ib.path||'/';
+  $('ib-host').value=ib.host||'';
+  $('ib-sni').value=ib.tls_sni||'';
+  $('ib-service').value=ib.service_name||'grpc';
+  $('ib-proxy').value=ib.external_proxy||'';
+  updateNetworkFields();
+  openModal('modalInbound');
+}
+
+async function saveInbound(){
+  const id = $('ib-id').value;
+  const body = {
+    protocol:$('ib-protocol').value,
+    port:$('ib-port').value,
+    network:$('ib-network').value,
+    security:$('ib-security').value,
+    remark:$('ib-remark').value,
+    path:$('ib-path').value||'/',
+    host:$('ib-host').value,
+    serviceName:$('ib-service').value||'grpc',
+    tlsSni:$('ib-sni').value,
+    externalProxy:$('ib-proxy').value,
+    headerType:'none',xhttpMode:'auto'
+  };
+  const r = id
+    ? await api('PUT',`/api/inbounds/${id}`,body)
+    : await api('POST','/api/inbounds',body);
+  if(r.success){
+    toast(r.message,'success');
+    closeModal('modalInbound');
+    loadInbounds();
+    // refresh filter
+    const sel=$('filterInbound'), clSel=$('cl-inbound');
+    while(sel.options.length>1) sel.remove(1);
+    while(clSel.options.length>0) clSel.remove(0);
+    loadInboundsFilter();
+  } else toast(r.message,'error');
+}
+
+async function toggleInbound(id, enabled){
+  const r = await api('PUT',`/api/inbounds/${id}`,{enabled});
+  if(!r.success) toast(r.message,'error');
+}
+
+async function deleteInbound(id){
+  if(!confirm('آیا از حذف این Inbound مطمئنید؟ کاربران آن نیز حذف می‌شوند!')) return;
+  const r = await api('DELETE',`/api/inbounds/${id}`);
+  if(r.success){ toast('حذف شد','success'); loadInbounds(); }
+  else toast(r.message,'error');
+}
+
+// ══════════════════════════════════════
+// CLIENTS
+// ══════════════════════════════════════
+async function loadClients(){
+  const search = $('clientSearch').value;
+  const inboundId = $('filterInbound').value;
+  let url = '/api/clients?';
+  if(search) url+=`search=${encodeURIComponent(search)}&`;
+  if(inboundId) url+=`inbound_id=${inboundId}`;
+  const r = await api('GET', url);
+  if(!r.success){toast(r.message,'error');return;}
+  const tb = $('clientsTable');
+  if(!r.data.length){
+    tb.innerHTML=`<tr><td colspan="6"><div class="empty-state"><div class="icon">👤</div><p>کاربری یافت نشد</p></div></td></tr>`;
+    return;
+  }
+  const now = new Date();
+  tb.innerHTML = r.data.map(c=>{
+    const isExp = c.is_expired;
+    const trafPct = c.traffic_limit>0 ? Math.min(100,(c.traffic_used/c.traffic_limit)*100) : 0;
+    const trafColor = trafPct>90?'red':trafPct>70?'yellow':'green';
+    const statusBadge = !c.enabled
+      ? '<span class="badge badge-gray">🚫 غیرفعال</span>'
+      : isExp
+        ? '<span class="badge badge-red">⏰ منقضی</span>'
+        : c.traffic_limit>0&&c.traffic_used>=c.traffic_limit
+          ? '<span class="badge badge-yellow">📦 تمام</span>'
+          : '<span class="badge badge-green">✅ فعال</span>';
+    return `
+    <tr>
+      <td>
+        <strong>${c.name}</strong>
+        <br><small style="color:var(--text3)">${c.email||''}</small>
+      </td>
+      <td>
+        <span class="badge badge-purple">${c.i_protocol?.toUpperCase()||'—'}</span>
+        <span class="badge badge-blue">${c.i_network?.toUpperCase()||'—'}</span>
+        <br><small style="color:var(--text3)">${c.inbound_remark||''}</small>
+      </td>
+      <td class="traffic-cell">
+        <div style="font-size:13px">${fmtBytes(c.traffic_used)} / ${c.traffic_limit>0?fmtBytes(c.traffic_limit):'∞'}</div>
+        ${c.traffic_limit>0?`<div class="progress-bar"><div class="progress-fill ${trafColor}" style="width:${trafPct}%"></div></div>`:''}
+      </td>
+      <td>
+        <div style="font-size:13px">${fmtDate(c.expire_date)}</div>
+        <div style="font-size:12px;color:var(--text3)">${daysLeft(c.expire_date)}</div>
+      </td>
+      <td>${statusBadge}</td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn btn-info btn-xs" onclick="showConfig(${c.id})">🔗</button>
+          <button class="btn btn-warning btn-xs" onclick="editClient(${c.id})">✏️</button>
+          <button class="btn btn-success btn-xs" onclick="resetTraffic(${c.id})">🔄</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteClient(${c.id})">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function debounceSearch(){
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadClients, 400);
+}
+
+function openAddClient(){
+  $('cl-id').value='';
+  $('modalClientTitle').textContent='➕ افزودن کاربر';
+  ['cl-name','cl-traffic','cl-expire','cl-maxconn','cl-email','cl-uuid','cl-proxy'].forEach(id=>{
+    const el=$(id); if(el) el.value='';
+  });
+  $('cl-edit-fields').style.display='none';
+  openModal('modalClient');
+}
+
+async function editClient(id){
+  const r = await api('GET','/api/clients');
+  if(!r.success) return;
+  const c = r.data.find(x=>x.id===id);
+  if(!c) return;
+  $('cl-id').value=c.id;
+  $('modalClientTitle').textContent='✏️ ویرایش کاربر';
+  $('cl-name').value=c.name;
+  $('cl-inbound').value=c.inbound_id;
+  $('cl-traffic').value=c.traffic_limit>0?(c.traffic_limit/1073741824).toFixed(2):'';
+  $('cl-email').value=c.email||'';
+  $('cl-uuid').value=c.uuid;
+  $('cl-proxy').value=c.external_proxy||'';
+  $('cl-maxconn').value=c.max_connections||'';
+  $('cl-enabled').checked=!!c.enabled;
+  $('cl-reset-traffic').checked=false;
+  $('cl-edit-fields').style.display='block';
+  // expire days: calculate
+  if(c.expire_date){
+    const days=Math.max(0,Math.ceil((new Date(c.expire_date)-Date.now())/86400000));
+    $('cl-expire').value=days;
+  } else $('cl-expire').value='';
+  openModal('modalClient');
+}
+
+async function saveClient(){
+  const id = $('cl-id').value;
+  const body = {
+    name:$('cl-name').value,
+    email:$('cl-email').value,
+    traffic_limit_gb:$('cl-traffic').value,
+    expire_days:$('cl-expire').value,
+    max_connections:$('cl-maxconn').value,
+    external_proxy:$('cl-proxy').value,
+    custom_uuid:$('cl-uuid').value,
+  };
+  if(id){
+    body.enabled=$('cl-enabled').checked;
+    body.reset_traffic=$('cl-reset-traffic').checked;
+  } else {
+    body.inbound_id=$('cl-inbound').value;
+  }
+  const r = id
+    ? await api('PUT',`/api/clients/${id}`,body)
+    : await api('POST','/api/clients',body);
+  if(r.success){
+    toast(r.message,'success');
+    closeModal('modalClient');
+    loadClients();
+  } else toast(r.message,'error');
+}
+
+async function deleteClient(id){
+  if(!confirm('کاربر حذف شود؟')) return;
+  const r = await api('DELETE',`/api/clients/${id}`);
+  if(r.success){ toast('حذف شد','success'); loadClients(); }
+  else toast(r.message,'error');
+}
+
+async function resetTraffic(id){
+  const r = await api('POST',`/api/clients/${id}/reset-traffic`);
+  if(r.success){ toast('ترافیک ری‌ست شد ✅','success'); loadClients(); }
+  else toast(r.message,'error');
+}
+
+// ══════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════
+async function showConfig(id){
+  const r = await api('GET',`/api/clients/${id}/config`);
+  const body = $('configBody');
+  if(!r.success){ body.innerHTML=`<p style="color:var(--red)">${r.message}</p>`; openModal('modalConfig'); return; }
+  const sub = `/sub/${(await api('GET','/api/clients')).data?.find(c=>c.id===id)?.sub_token||''}`;
+  const configs = r.data;
+  body.innerHTML = configs.map(cfg=>`
+    <div style="background:var(--bg2);border-radius:var(--radius2);padding:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;gap:6px">
+          <span class="badge badge-purple">${cfg.type.toUpperCase()}</span>
+          <span class="badge badge-blue">${cfg.network.toUpperCase()}</span>
+        </div>
+        <button class="btn btn-success btn-xs" onclick="copyText('${encodeURIComponent(cfg.link)}',this)" style="font-size:12px">📋 کپی</button>
+      </div>
+      <div class="config-box" dir="ltr">${cfg.link.substring(0,80)}...</div>
+      <div id="qr-${id}" style="display:none" class="qr-wrap"></div>
+      <button class="btn btn-ghost btn-xs" onclick="toggleQR(${id},'${encodeURIComponent(cfg.link)}')">📱 نمایش QR</button>
+    </div>
+  `).join('')+`
+    <div style="margin-top:16px">
+      <label style="font-size:13px;color:var(--text2);margin-bottom:6px;display:block">🔗 لینک ساب‌اسکریپشن</label>
+      <div class="config-box" dir="ltr">${location.origin}${sub}</div>
+      <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="copyText('${location.origin}${sub}')">📋 کپی لینک ساب</button>
+      <a href="${sub}/html" target="_blank" class="btn btn-info btn-sm" style="margin-top:8px">🌐 صفحه کاربر</a>
+    </div>
+  `;
+  openModal('modalConfig');
+}
+
+async function toggleQR(id, link){
+  const el = $(`qr-${id}`);
+  if(el.style.display==='none'){
+    const decoded = decodeURIComponent(link);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(decoded)}`;
+    el.innerHTML=`<img src="${qrUrl}" alt="QR" style="border-radius:8px"/>`;
+    el.style.display='flex';
+  } else el.style.display='none';
+}
+
+// ══════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════
+async function loadSettings(){
+  const r = await api('GET','/api/settings');
+  if(!r.success) return;
+  const d=r.data;
+  $('panelNameTop').textContent=d.panel_name||'Persian Panel';
+  const theme=d.theme||'dark';
+  document.documentElement.setAttribute('data-theme',theme);
+  $('themeToggleBtn').textContent=theme==='light'?'☀️':'🌙';
+}
+async function loadSettingsPage(){
+  const r = await api('GET','/api/settings');
+  if(!r.success) return;
+  const d=r.data;
+  $('set-name').value=d.panel_name||'';
+  $('set-domain').value=d.panel_domain||'';
+  $('set-tcp').value=d.tcp_proxy||'';
+  $('set-theme').value=d.theme||'dark';
+}
+async function saveSettings(){
+  const r = await api('POST','/api/settings',{
+    panel_name:$('set-name').value,
+    panel_domain:$('set-domain').value,
+    tcp_proxy:$('set-tcp').value,
+    theme:$('set-theme').value
+  });
+  if(r.success){ toast(r.message,'success'); loadSettings(); }
+  else toast(r.message,'error');
+}
+
+// ══════════════════════════════════════
+// PROFILE
+// ══════════════════════════════════════
+async function changePassword(){
+  const r = await api('POST','/api/auth/change-password',{
+    currentPassword:$('cur-pass').value,
+    newPassword:$('new-pass').value,
+    newUsername:$('new-username').value
+  });
+  if(r.success){
+    toast(r.message,'success');
+    ['cur-pass','new-pass','new-username'].forEach(id=>$(id).value='');
+  } else toast(r.message,'error');
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el=>{
+  el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('open'); });
+});
 </script>
-</body></html>`);
-  } catch (e) { res.status(500).send('<h1>Error</h1>'); }
-});
-
-// ════════════════════════════════
-// STATIC + SPA
-// ════════════════════════════════
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('*', (req, res) => {
-  if (req.path.startsWith('/api/') || req.path.startsWith('/sub/'))
-    return res.status(404).json({ success: false, message: 'Not Found' });
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// ════════════════════════════════
-// CRON — هر ساعت
-// ════════════════════════════════
-cron.schedule('0 * * * *', () => {
-  try {
-    const now = new Date().toISOString();
-    const r1 = db.prepare('UPDATE clients SET enabled=0 WHERE expire_date IS NOT NULL AND expire_date<? AND enabled=1').run(now);
-    const r2 = db.prepare('UPDATE clients SET enabled=0 WHERE traffic_limit>0 AND traffic_used>=traffic_limit AND enabled=1').run();
-    if (r1.changes || r2.changes) console.log(`[cron] disabled: ${r1.changes} expired, ${r2.changes} traffic`);
-  } catch (e) { console.error('[cron]', e.message); }
-});
-
-// ════════════════════════════════
-// START
-// ════════════════════════════════
-initDB();
-app.listen(PORT, '0.0.0.0', () => {
-  const d = process.env.RAILWAY_PUBLIC_DOMAIN || `localhost:${PORT}`;
-  console.log(`\n🔮 Persian Panel\n🌐 https://${d}\n👤 admin / admin\n`);
-});
+</body>
+</html>
