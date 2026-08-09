@@ -1,15 +1,19 @@
-node_modules
-npm-debug.log
-.env
-.env.local
-.git
-.gitignore
-.github
-README.md
-docker-compose.yml
-.DS_Store
-*.md
-data/
-logs/
-.vscode/
-.idea/
+version: '3.8'
+
+services:
+  panel:
+    build: .
+    container_name: persian-panel
+    restart: unless-stopped
+    ports:
+      - "2053:2053"
+    environment:
+      - PORT=2053
+      - DOMAIN=${DOMAIN:-localhost}
+      - PANEL_PATH=/panel
+      - NODE_ENV=production
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin
+      - TZ=Asia/Tehran
+    volumes:
+      - ./data:/app/data
