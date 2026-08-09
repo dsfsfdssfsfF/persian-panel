@@ -1,0 +1,45 @@
+# 🇮🇷 PERSIAN PANEL
+
+<div align="center">
+
+![PERSIAN PANEL](https://img.shields.io/badge/PERSIAN-PANEL-239F40?style=for-the-badge&logo=iran)
+![Version](https://img.shields.io/badge/version-1.0.0-DA0000?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-FFFFFF?style=for-the-badge)
+
+**پنل پیشرفته مدیریت VPN با طراحی اختصاصی ایرانی**
+
+[نصب](#-نصب) • [استفاده](#-استفاده) • [مستندات](#-مستندات) • [پشتیبانی](#-پشتیبانی)
+
+</div>
+
+---
+
+## ✨ ویژگی‌ها
+
+- 🎨 **طراحی منحصر به فرد** با رنگ‌های پرچم ایران
+- ⚡ **سریع و کارآمد** با Node.js و Nginx
+- 🔒 **امن و مطمئن** با احراز هویت پیشرفته
+- 🌐 **کاملاً فارسی** با پشتیبانی RTL
+- 🐳 **آماده Docker** برای استقرار آسان
+- 📱 **Responsive** برای تمام دستگاه‌ها
+- 🚀 **سازگار با Railway** و سرویس‌های ابری
+- 🇮🇷 **بهینه برای ایران** با CDN و DNS مناسب
+
+## 🚀 نصب سریع
+
+### با Docker Compose (توصیه می‌شود)
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/persian-panel.git
+cd persian-panel
+
+# Create .env file
+cp .env.example .env
+nano .env  # ویرایش تنظیمات
+
+# Run with Docker Compose
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f
