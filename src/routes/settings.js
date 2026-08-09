@@ -1,39 +1,121 @@
 const express = require('express');
 const router = express.Router();
-const { getAllSettings, setSetting } = require('../db/database');
+const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 
-// همه route ها نیاز به احراز هویت دارند
 router.use(requireAuth);
 
-// GET /api/settings - دریافت تنظیمات
+// GET /api/settings
 router.get('/', (req, res) => {
     try {
-        const settings = getAllSettings();
-        res.json(settings);
-    } catch (error) {
-        console.error('Get settings error:', error);
-        res.status(500).json({ error: error.message });
+        res.json(db.getAllSettings());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
-// POST /api/settings - ذخیره تنظیمات
+// POST /api/settings
 router.post('/', (req, res) => {
     try {
-        const { panel_name, cf_domain, theme, lang } = req.body;
+        const { panel_name, cf_domain, theme } = req.body;
 
-        if (panel_name) setSetting('panel_name', panel_name);
-        if (cf_domain !== undefined) setSetting('cf_domain', cf_domain);
-        if (theme) setSetting('theme', theme);
-        if (lang) setSetting('lang', lang);
+        if (panel_name !== undefined) db.setSetting('panel_name', panel_name);
+        if (cf_domain !== undefined) db.setSetting('cf_domain', cf_domain);
+        if (theme !== undefined) db.setSetting('theme', theme);
 
-        res.json({
-            success: true,
-            message: 'تنظیمات با موفقیت ذخیره شد'
-        });
-    } catch (error) {
-        console.error('Save settings error:', error);
-        res.status(500).json({ error: error.message });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ===== Outbounds =====
+// GET /api/settings/outbounds
+router.get('/outbounds', (req, res) => {
+    try {
+        res.json(db.getAllOutbounds());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/settings/outbounds
+router.post('/outbounds', (req, res) => {
+    try {
+        const result = db.createOutbound(req.body);
+        res.status(201).json({ success: true, id: result.lastInsertRowid });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/settings/outbounds/:id
+router.delete('/outbounds/:id', (req, res) => {
+    try {
+        db.deleteOutbound(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ===== Routing =====
+// GET /api/settings/routing
+router.get('/routing', (req, res) => {
+    try {
+        res.json(db.getAllRoutingRules());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/settings/routing
+router.post('/routing', (req, res) => {
+    try {
+        const result = db.createRoutingRule(req.body);
+        res.status(201).json({ success: true, id: result.lastInsertRowid });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/settings/routing/:id
+router.delete('/routing/:id', (req, res) => {
+    try {
+        db.deleteRoutingRule(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ===== Hosts =====
+// GET /api/settings/hosts
+router.get('/hosts', (req, res) => {
+    try {
+        res.json(db.getAllHosts());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/settings/hosts
+router.post('/hosts', (req, res) => {
+    try {
+        const result = db.createHost(req.body);
+        res.status(201).json({ success: true, id: result.lastInsertRowid });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /api/settings/hosts/:id
+router.delete('/hosts/:id', (req, res) => {
+    try {
+        db.deleteHost(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
