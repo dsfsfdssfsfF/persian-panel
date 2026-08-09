@@ -1,48 +1,23 @@
 {
   "name": "persian-panel",
   "version": "1.0.0",
-  "description": "🇮🇷 Advanced VPN Management Panel - PERSIAN PANEL",
+  "description": "PERSIAN PANEL - VPN Management",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "NODE_ENV=development node --watch server.js",
-    "docker:build": "docker build -t persian-panel .",
-    "docker:run": "docker-compose up -d",
-    "docker:stop": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
+    "dev": "node --watch server.js"
   },
-  "keywords": [
-    "vpn",
-    "panel",
-    "iran",
-    "persian",
-    "v2ray",
-    "xray",
-    "vless",
-    "vmess",
-    "trojan"
-  ],
-  "author": "PERSIAN PANEL Team",
-  "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "cookie-parser": "^1.4.6",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^9.2.2",
+    "better-sqlite3": "^9.6.0",
     "uuid": "^9.0.1",
-    "qrcode": "^1.5.3",
     "compression": "^1.7.4",
-    "helmet": "^7.1.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "node-fetch": "^3.3.2"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
+    "dotenv": "^16.4.5"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=18.0.0"
   }
 }
