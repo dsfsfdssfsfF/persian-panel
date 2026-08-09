@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  persian-panel:
+    build: .
+    container_name: persian-panel
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "2053:2053"
+    environment:
+      - NODE_ENV=production
+      - PORT=2053
+      - DOMAIN=${DOMAIN:-localhost}
+      - PANEL_PATH=${PANEL_PATH:-/panel}
+      - DATABASE_URL=sqlite:///app/data/persian-panel.db
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - TZ=Asia/Tehran
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - persian-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  persian-network:
+    driver: bridge
