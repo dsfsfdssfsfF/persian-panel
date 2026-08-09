@@ -3,9 +3,14 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
+# Install build dependencies for better-sqlite3
+RUN apk add --no-cache python3 make g++
+
+# Copy package files
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+
+# Install dependencies (بدون npm ci)
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copy application files
 COPY . .
@@ -40,7 +45,7 @@ COPY nginx.conf.template /etc/nginx/nginx.conf.template
 
 # Create necessary directories
 RUN mkdir -p /var/log/nginx /var/lib/nginx /run/nginx /app/data /app/logs \
-    && chown -R node:node /app /var/log/nginx /var/lib/nginx /run/nginx
+    && chmod +x /start.sh || true
 
 # Copy start script
 COPY start.sh /start.sh
@@ -52,9 +57,6 @@ EXPOSE 80 2053
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost/health || exit 1
-
-# Switch to node user
-USER node
 
 # Start application
 CMD ["/start.sh"]
