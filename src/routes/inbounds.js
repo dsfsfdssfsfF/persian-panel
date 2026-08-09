@@ -1,102 +1,71 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    getAllInbounds, 
-    getInboundById, 
-    createInbound, 
-    updateInbound, 
-    deleteInbound 
-} = require('../db/database');
+const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 
-// همه route ها نیاز به احراز هویت دارند
 router.use(requireAuth);
 
-// GET /api/inbounds - دریافت لیست Inbounds
+// GET /api/inbounds
 router.get('/', (req, res) => {
     try {
-        const inbounds = getAllInbounds();
-        res.json(inbounds);
-    } catch (error) {
-        console.error('Get inbounds error:', error);
-        res.status(500).json({ error: error.message });
+        res.json(db.getAllInbounds());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/inbounds/:id - دریافت اطلاعات یک Inbound
+// GET /api/inbounds/:id
 router.get('/:id', (req, res) => {
     try {
-        const inbound = getInboundById(req.params.id);
-        if (!inbound) {
-            return res.status(404).json({ error: 'Inbound یافت نشد' });
-        }
+        const inbound = db.getInboundById(req.params.id);
+        if (!inbound) return res.status(404).json({ error: 'یافت نشد' });
         res.json(inbound);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
-// POST /api/inbounds - ایجاد Inbound جدید
+// POST /api/inbounds
 router.post('/', (req, res) => {
     try {
         const { remark, protocol, port } = req.body;
-
         if (!remark || !protocol || !port) {
-            return res.status(400).json({ 
-                error: 'نام، پروتکل و پورت الزامی است' 
-            });
+            return res.status(400).json({ error: 'نام، پروتکل و پورت الزامی است' });
         }
 
-        const result = createInbound(req.body);
-        
-        res.status(201).json({
-            success: true,
-            id: result.lastInsertRowid,
-            message: 'Inbound با موفقیت ایجاد شد'
-        });
-    } catch (error) {
-        console.error('Create inbound error:', error);
-        res.status(500).json({ error: error.message });
+        const result = db.createInbound(req.body);
+        res.status(201).json({ success: true, id: result.lastInsertRowid });
+    } catch (err) {
+        console.error('Create inbound error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
-// PUT /api/inbounds/:id - ویرایش Inbound
+// PUT /api/inbounds/:id
 router.put('/:id', (req, res) => {
     try {
-        const inbound = getInboundById(req.params.id);
-        if (!inbound) {
-            return res.status(404).json({ error: 'Inbound یافت نشد' });
-        }
+        const inbound = db.getInboundById(req.params.id);
+        if (!inbound) return res.status(404).json({ error: 'یافت نشد' });
 
-        updateInbound(req.params.id, req.body);
-        
-        res.json({
-            success: true,
-            message: 'Inbound با موفقیت ویرایش شد'
-        });
-    } catch (error) {
-        console.error('Update inbound error:', error);
-        res.status(500).json({ error: error.message });
+        db.updateInbound(req.params.id, req.body);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Update inbound error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
-// DELETE /api/inbounds/:id - حذف Inbound
+// DELETE /api/inbounds/:id
 router.delete('/:id', (req, res) => {
     try {
-        const inbound = getInboundById(req.params.id);
-        if (!inbound) {
-            return res.status(404).json({ error: 'Inbound یافت نشد' });
-        }
+        const inbound = db.getInboundById(req.params.id);
+        if (!inbound) return res.status(404).json({ error: 'یافت نشد' });
 
-        deleteInbound(req.params.id);
-        
-        res.json({
-            success: true,
-            message: 'Inbound با موفقیت حذف شد'
-        });
-    } catch (error) {
-        console.error('Delete inbound error:', error);
-        res.status(500).json({ error: error.message });
+        db.deleteInbound(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete inbound error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
