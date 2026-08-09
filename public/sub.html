@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PERSIAN PANEL - اشتراک من</title>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #040410;
+            --bg2: #0a0f1a;
+            --bg3: #111827;
+            --card: rgba(255,255,255,0.03);
+            --card2: rgba(255,255,255,0.06);
+            --border: rgba(255,255,255,0.08);
+            --green: #239F40;
+            --white: #FFFFFF;
+            --red: #DA0000;
+            --text: #f9fafb;
+            --text2: #9ca3af;
+            --text3: #6b7280;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --cyan: #06b6d4;
+            --spring: cubic-bezier(.34,1.56,.64,1);
+        }
+
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ===== BACKGROUND ===== */
+        .bg-effects {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(140px);
+            animation: floatOrb 25s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, var(--green) 0%, transparent 70%);
+            top: -250px; right: -150px; opacity: 0.12;
+        }
+
+        .orb-2 {
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, var(--red) 0%, transparent 70%);
+            bottom: -200px; left: -100px; opacity: 0.12;
+            animation-delay: 12s;
+        }
+
+        .orb-3 {
+            width: 350px; height: 350px;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+            top: 50%; left: 50%; transform: translate(-50%,-50%);
+            opacity: 0.04; animation-delay: 20s;
+        }
+
+        @keyframes floatOrb {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(40px, -60px) scale(1.1); }
+            66% { transform: translate(-50px, 50px) scale(0.9); }
+        }
+
+        .grid-bg {
+            position: absolute; inset: 0;
+            background-image: 
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.3;
+        }
+
+        #particles { position: absolute; inset: 0; }
+
+        .particle {
+            position: absolute;
+            width: 3px; height: 3px;
+            border-radius: 50%;
+            animation: pFloat 18s ease-in-out infinite;
+        }
+
+        .particle.g { background: var(--green); opacity: 0.3; }
+        .particle.w { background: var(--white); opacity: 0.15; }
+        .particle.r { background: var(--red); opacity: 0.3; }
+
+        @keyframes pFloat {
+            0%, 100% { transform: translate(0,0); opacity: 0.3; }
+            50% { transform: translate(var(--tx), var(--ty)); opacity: 0.7; }
+        }
+
+        /* ===== IRAN FLAG TOP BAR ===== */
+        .flag-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--green) 0%, var(--green) 33%, var(--white) 33%, var(--white) 66%, var(--red) 66%, var(--red) 100%);
+            z-index: 100;
+            box-shadow: 0 0 20px rgba(35,159,64,0.5), 0 0 20px rgba(218,0,0,0.5);
+        }
+
+        .flag-bar::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+            background-size: 200% 100%;
+            animation: flagShimmer 4s linear infinite;
+        }
+
+        @keyframes flagShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ===== MAIN CONTAINER ===== */
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px 20px 60px;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeInDown 800ms var(--spring);
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .logo-icon {
+            width: 72px; height: 72px;
+            background: linear-gradient(135deg, var(--green), var(--red));
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            animation: logoFloat 4s ease-in-out infinite, logoPulse 3s ease-in-out infinite;
+            box-shadow: 0 0 40px rgba(35,159,64,0.4), 0 0 60px rgba(218,0,0,0.2);
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0) rotate(-2deg); }
+            50% { transform: translateY(-10px) rotate(2deg); }
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { box-shadow: 0 0 40px rgba(35,159,64,0.4); }
+            50% { box-shadow: 0 0 60px rgba(35,159,64,0.7), 0 0 80px rgba(218,0,0,0.4); }
+        }
+
+        .brand-title {
+            font-size: 32px;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--green), var(--white), var(--red));
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradShift 5s ease infinite;
+            letter-spacing: -1px;
+        }
+
+        @keyframes gradShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .header-subtitle {
+            color: var(--text2);
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        /* ===== USER CARD ===== */
+        .user-card {
+            background: var(--card);
+            backdrop-filter: blur(24px);
+            border: 2px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+            animation: cardIn 800ms var(--spring) 200ms backwards;
+        }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(40px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .user-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--green), var(--white), var(--red));
+            background-size: 200% 100%;
+            animation: flagShimmer 4s linear infinite;
+        }
+
+        .user-info-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .user-avatar {
+            width: 56px; height: 56px;
+            background: linear-gradient(135deg, var(--green), var(--red));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: 900;
+            box-shadow: 0 4px 20px rgba(35,159,64,0.4);
+            animation: avatarPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes avatarPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(35,159,64,0.6); }
+            50% { box-shadow: 0 0 0 12px rgba(35,159,64,0); }
+        }
+
+        .user-details { flex: 1; }
+
+        .user-name {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .user-email {
+            font-size: 13px;
+            color: var(--text3);
+        }
+
+        .status-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .status-live.active {
+            background: rgba(16,185,129,0.15);
+            color: var(--success);
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+
+        .status-live.expired {
+            background: rgba(239,68,68,0.15);
+            color: var(--error);
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+
+        .status-live.limited {
+            background: rgba(245,158,11,0.15);
+            color: var(--warning);
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+
+        .status-live.disabled {
+            background: rgba(107,114,128,0.15);
+            color: var(--text3);
+            border: 1px solid rgba(107,114,128,0.3);
+        }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 8px currentColor;
+            animation: dotPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.4); opacity: 0.5; }
+        }
+
+        /* ===== STATS GRID ===== */
+        .stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .mini-stat {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px;
+            text-align: center;
+            transition: all 400ms var(--spring);
+            animation: statIn 600ms var(--spring) backwards;
+        }
+
+        .mini-stat:nth-child(1) { animation-delay: 300ms; }
+        .mini-stat:nth-child(2) { animation-delay: 400ms; }
+        .mini-stat:nth-child(3) { animation-delay: 500ms; }
+        .mini-stat:nth-child(4) { animation-delay: 600ms; }
+
+        @keyframes statIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.9); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .mini-stat:hover {
+            transform: translateY(-6px);
+            border-color: var(--green);
+            box-shadow: 0 12px 32px rgba(35,159,64,0.2);
+        }
+
+        .mini-stat-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .mini-stat-value {
+            font-size: 20px;
+            font-weight: 900;
+            margin-bottom: 4px;
+            color: var(--text);
+        }
+
+        .mini-stat-label {
+            font-size: 12px;
+            color: var(--text3);
+            font-weight: 600;
+        }
+
+        /* ===== TRAFFIC BAR ===== */
+        .traffic-section {
+            margin-bottom: 24px;
+            animation: cardIn 800ms var(--spring) 700ms backwards;
+        }
+
+        .traffic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .traffic-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text2);
+        }
+
+        .traffic-percent {
+            font-size: 18px;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--green), var(--cyan));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .traffic-bar-outer {
+            width: 100%;
+            height: 12px;
+            background: var(--bg2);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid var(--border);
+        }
+
+        .traffic-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            background: linear-gradient(90deg, var(--green), var(--cyan));
+            transition: width 1500ms var(--spring);
+            position: relative;
+            box-shadow: 0 0 16px rgba(35,159,64,0.6);
+        }
+
+        .traffic-bar-fill.high {
+            background: linear-gradient(90deg, var(--warning), var(--error));
+            box-shadow: 0 0 16px rgba(218,0,0,0.6);
+        }
+
+        .traffic-bar-fill::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: barShimmer 2s linear infinite;
+        }
+
+        @keyframes barShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .traffic-details {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text3);
+            font-weight: 600;
+        }
+
+        /* ===== QR CODE ===== */
+        .qr-card {
+            background: var(--card);
+            backdrop-filter: blur(24px);
+            border: 2px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+            margin-bottom: 24px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            animation: cardIn 800ms var(--spring) 400ms backwards;
+        }
+
+        .qr-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--green), var(--white), var(--red));
+            background-size: 200% 100%;
+            animation: flagShimmer 4s linear infinite;
+        }
+
+        .qr-title {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .qr-desc {
+            font-size: 13px;
+            color: var(--text3);
+            margin-bottom: 24px;
+        }
+
+        .qr-frame {
+            display: inline-block;
+            padding: 16px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 
+                0 0 0 4px rgba(35,159,64,0.2),
+                0 0 0 8px rgba(218,0,0,0.1),
+                0 20px 60px rgba(0,0,0,0.5);
+            animation: qrIn 800ms var(--spring) 600ms backwards;
+            position: relative;
+        }
+
+        @keyframes qrIn {
+            from { opacity: 0; transform: scale(0.5) rotate(-10deg); }
+            to { opacity: 1; transform: scale(1) rotate(0); }
+        }
+
+        .qr-frame img {
+            display: block;
+            width: 220px;
+            height: 220px;
+            border-radius: 8px;
+        }
+
+        .qr-corner {
+            position: absolute;
+            width: 20px; height: 20px;
+            border: 3px solid var(--green);
+        }
+
+        .qr-corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; border-radius: 6px 0 0 0; }
+        .qr-corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; border-radius: 0 6px 0 0; }
+        .qr-corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
+        .qr-corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
+
+        .scan-hint {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text2);
+            font-weight: 600;
+        }
+
+        .scan-icon {
+            font-size: 20px;
+            animation: scanPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes scanPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        /* ===== CONFIG CARD ===== */
+        .config-card {
+            background: var(--card);
+            backdrop-filter: blur(24px);
+            border: 2px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+            animation: cardIn 800ms var(--spring) 600ms backwards;
+        }
+
+        .config-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--green), var(--white), var(--red));
+            background-size: 200% 100%;
+            animation: flagShimmer 4s linear infinite;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title-icon {
+            font-size: 24px;
+        }
+
+        .config-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .c-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .c-badge.protocol {
+            background: rgba(35,159,64,0.15);
+            color: var(--green);
+            border: 1px solid rgba(35,159,64,0.3);
+        }
+
+        .c-badge.network {
+            background: rgba(59,130,246,0.15);
+            color: var(--info);
+            border: 1px solid rgba(59,130,246,0.3);
+        }
+
+        .c-badge.security {
+            background: rgba(6,182,212,0.15);
+            color: var(--cyan);
+            border: 1px solid rgba(6,182,212,0.3);
+        }
+
+        .c-badge.uuid-badge {
+            background: rgba(245,158,11,0.15);
+            color: var(--warning);
+            border: 1px solid rgba(245,158,11,0.3);
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+        }
+
+        .link-box {
+            margin-bottom: 16px;
+        }
+
+        .link-label {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text2);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .link-content {
+            display: flex;
+            gap: 10px;
+        }
+
+        .link-text {
+            flex: 1;
+            padding: 14px;
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--green);
+            word-break: break-all;
+            max-height: 80px;
+            overflow-y: auto;
+            line-height: 1.6;
+            direction: ltr;
+            text-align: left;
+        }
+
+        .copy-btn {
+            min-width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--green), #1e8e3e);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 400ms var(--spring);
+            box-shadow: 0 4px 16px rgba(35,159,64,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .copy-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; right: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: right 500ms;
+        }
+
+        .copy-btn:hover::before {
+            right: 100%;
+        }
+
+        .copy-btn:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 8px 24px rgba(35,159,64,0.5);
+        }
+
+        .copy-btn:active {
+            transform: translateY(-1px) scale(0.97);
+        }
+
+        .copy-btn.copied {
+            background: linear-gradient(135deg, var(--success), #059669);
+        }
+
+        .copy-btn .check {
+            display: none;
+        }
+
+        .copy-btn.copied .clipboard { display: none; }
+        .copy-btn.copied .check { display: block; }
+
+        /* ===== APP BUTTONS ===== */
+        .apps-card {
+            background: var(--card);
+            backdrop-filter: blur(24px);
+            border: 2px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+            animation: cardIn 800ms var(--spring) 800ms backwards;
+        }
+
+        .apps-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--green), var(--white), var(--red));
+            background-size: 200% 100%;
+            animation: flagShimmer 4s linear infinite;
+        }
+
+        .apps-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .app-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 13px;
+            transition: all 400ms var(--spring);
+        }
+
+        .app-btn:hover {
+            transform: translateY(-4px);
+            border-color: var(--green);
+            box-shadow: 0 12px 32px rgba(35,159,64,0.2);
+        }
+
+        .app-icon {
+            font-size: 28px;
+        }
+
+        .app-name {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .app-platform {
+            font-size: 11px;
+            color: var(--text3);
+            font-weight: 500;
+        }
+
+        /* ===== SUB BUTTON ===== */
+        .sub-btn-wrap {
+            margin-bottom: 24px;
+            animation: cardIn 800ms var(--spring) 900ms backwards;
+        }
+
+        .sub-copy-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, var(--green), #1e8e3e);
+            border: none;
+            border-radius: 16px;
+            color: white;
+            font-family: 'Vazirmatn', sans-serif;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 400ms var(--spring);
+            box-shadow: 0 8px 32px rgba(35,159,64,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sub-copy-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; right: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: right 600ms;
+        }
+
+        .sub-copy-btn:hover::before { right: 100%; }
+
+        .sub-copy-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(35,159,64,0.6);
+        }
+
+        .sub-copy-btn:active {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            text-align: center;
+            padding: 24px 0;
+            animation: cardIn 800ms var(--spring) 1000ms backwards;
+        }
+
+        .footer-brand {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text3);
+            margin-bottom: 8px;
+        }
+
+        .footer-flag {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text3);
+        }
+
+        .footer-line {
+            width: 40px; height: 3px;
+            border-radius: 2px;
+        }
+
+        .footer-line.g { background: var(--green); }
+        .footer-line.w { background: var(--white); opacity: 0.3; }
+        .footer-line.r { background: var(--red); }
+
+        /* ===== LOADING ===== */
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            transition: opacity 500ms, visibility 500ms;
+        }
+
+        .loading-screen.hide {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loading-spinner {
+            width: 56px; height: 56px;
+            border: 4px solid var(--border);
+            border-top-color: var(--green);
+            border-right-color: var(--red);
+            border-radius: 50%;
+            animation: spin 800ms linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-text {
+            color: var(--text2);
+            font-weight: 600;
+        }
+
+        /* ===== ERROR STATE ===== */
+        .error-card {
+            text-align: center;
+            padding: 60px 32px;
+            background: var(--card);
+            backdrop-filter: blur(24px);
+            border: 2px solid rgba(218,0,0,0.3);
+            border-radius: 24px;
+            animation: cardIn 800ms var(--spring);
+        }
+
+        .error-icon {
+            font-size: 72px;
+            margin-bottom: 20px;
+            opacity: 0.6;
+        }
+
+        .error-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            color: var(--error);
+        }
+
+        .error-desc {
+            color: var(--text3);
+            font-size: 14px;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 480px) {
+            .container { padding: 30px 16px 40px; }
+            .user-card, .qr-card, .config-card, .apps-card { padding: 24px; border-radius: 20px; }
+            .brand-title { font-size: 26px; }
+            .user-name { font-size: 18px; }
+            .stats-row { gap: 10px; }
+            .apps-grid { grid-template-columns: 1fr; }
+            .qr-frame img { width: 180px; height: 180px; }
+        }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg2); }
+        ::-webkit-scrollbar-thumb { background: var(--green); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <!-- Background -->
+    <div class="bg-effects">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="grid-bg"></div>
+        <div id="particles"></div>
+    </div>
+
+    <!-- Iran Flag Bar -->
+    <div class="flag-bar"></div>
+
+    <!-- Loading -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">در حال بارگذاری اطلاعات...</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container" id="mainContent" style="display:none;">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo-wrap">
+                <div class="logo-icon">🇮🇷</div>
+            </div>
+            <h1 class="brand-title">PERSIAN PANEL</h1>
+            <p class="header-subtitle">صفحه اشتراک شما</p>
+        </div>
+
+        <!-- User Info Card -->
+        <div class="user-card">
+            <div class="user-info-header">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-details">
+                    <div class="user-name" id="userName">-</div>
+                    <div class="user-email" id="userEmail"></div>
+                </div>
+                <div class="status-live active" id="statusBadge">
+                    <span class="status-dot"></span>
+                    <span id="statusText">فعال</span>
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="mini-stat">
+                    <div class="mini-stat-icon">📥</div>
+                    <div class="mini-stat-value" id="downloadVal">-</div>
+                    <div class="mini-stat-label">دانلود</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon">📤</div>
+                    <div class="mini-stat-value" id="uploadVal">-</div>
+                    <div class="mini-stat-label">آپلود</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon">📅</div>
+                    <div class="mini-stat-value" id="expireVal">-</div>
+                    <div class="mini-stat-label">تاریخ انقضا</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon">🔗</div>
+                    <div class="mini-stat-value" id="maxConnVal">-</div>
+                    <div class="mini-stat-label">حداکثر اتصال</div>
+                </div>
+            </div>
+
+            <!-- Traffic Bar -->
+            <div class="traffic-section">
+                <div class="traffic-header">
+                    <span class="traffic-title">مصرف ترافیک</span>
+                    <span class="traffic-percent" id="trafficPercent">0%</span>
+                </div>
+                <div class="traffic-bar-outer">
+                    <div class="traffic-bar-fill" id="trafficFill" style="width: 0%"></div>
+                </div>
+                <div class="traffic-details">
+                    <span id="trafficUsed">0 B</span>
+                    <span id="trafficTotal">نامحدود</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Code -->
+        <div class="qr-card">
+            <h3 class="qr-title">اسکن QR کد</h3>
+            <p class="qr-desc">با اپلیکیشن VPN خود اسکن کنید</p>
+            <div class="qr-frame">
+                <div class="qr-corner tl"></div>
+                <div class="qr-corner tr"></div>
+                <div class="qr-corner bl"></div>
+                <div class="qr-corner br"></div>
+                <img id="qrImage" alt="QR Code" src="">
+            </div>
+            <div class="scan-hint">
+                <span class="scan-icon">📱</span>
+                <span>با دوربین اپلیکیشن اسکن کنید</span>
+            </div>
+        </div>
+
+        <!-- Config Info -->
+        <div class="config-card">
+            <h3 class="section-title">
+                <span class="section-title-icon">🔧</span>
+                اطلاعات اتصال
+            </h3>
+
+            <div class="config-badges" id="configBadges"></div>
+
+            <!-- Config Link -->
+            <div class="link-box">
+                <div class="link-label">🔗 لینک کانفیگ</div>
+                <div class="link-content">
+                    <div class="link-text" id="configLink">-</div>
+                    <button class="copy-btn" onclick="copyText(gEl('configLink').textContent, this)">
+                        <span class="clipboard">📋</span>
+                        <span class="check">✓</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sub Link -->
+            <div class="link-box">
+                <div class="link-label">📡 لینک اشتراک</div>
+                <div class="link-content">
+                    <div class="link-text" id="subLink">-</div>
+                    <button class="copy-btn" onclick="copyText(gEl('subLink').textContent, this)">
+                        <span class="clipboard">📋</span>
+                        <span class="check">✓</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Copy Sub Button -->
+        <div class="sub-btn-wrap">
+            <button class="sub-copy-btn" onclick="copyText(gEl('subLink').textContent, this)">
+                📋 کپی لینک اشتراک
+            </button>
+        </div>
+
+        <!-- Apps -->
+        <div class="apps-card">
+            <h3 class="section-title">
+                <span class="section-title-icon">📱</span>
+                اپلیکیشن‌های پیشنهادی
+            </h3>
+
+            <div class="apps-grid">
+                <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang" target="_blank" class="app-btn">
+                    <span class="app-icon">🤖</span>
+                    <div class="app-name">
+                        <span>v2rayNG</span>
+                        <span class="app-platform">اندروید</span>
+                    </div>
+                </a>
+                <a href="https://apps.apple.com/app/streisand/id6450534064" target="_blank" class="app-btn">
+                    <span class="app-icon">🍎</span>
+                    <div class="app-name">
+                        <span>Streisand</span>
+                        <span class="app-platform">آیفون / آیپد</span>
+                    </div>
+                </a>
+                <a href="https://github.com/2dust/v2rayN/releases" target="_blank" class="app-btn">
+                    <span class="app-icon">💻</span>
+                    <div class="app-name">
+                        <span>v2rayN</span>
+                        <span class="app-platform">ویندوز</span>
+                    </div>
+                </a>
+                <a href="https://apps.apple.com/app/v2box-v2ray-client/id6446814690" target="_blank" class="app-btn">
+                    <span class="app-icon">🖥️</span>
+                    <div class="app-name">
+                        <span>V2Box</span>
+                        <span class="app-platform">مک</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-brand">PERSIAN PANEL 🇮🇷</div>
+            <div class="footer-flag">
+                <div class="footer-line g"></div>
+                <div class="footer-line w"></div>
+                <div class="footer-line r"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div class="container" id="errorContent" style="display:none;">
+        <div class="header">
+            <div class="logo-wrap">
+                <div class="logo-icon">🇮🇷</div>
+            </div>
+            <h1 class="brand-title">PERSIAN PANEL</h1>
+        </div>
+        <div class="error-card">
+            <div class="error-icon">❌</div>
+            <h2 class="error-title">اشتراک یافت نشد</h2>
+            <p class="error-desc">لینک اشتراک نامعتبر است یا منقضی شده. با پشتیبانی تماس بگیرید.</p>
+        </div>
+    </div>
+
+    <script>
+        const gEl = id => document.getElementById(id);
+
+        // ===== Particles =====
+        (function() {
+            const container = gEl('particles');
+            const colors = ['g', 'w', 'r'];
+            for (let i = 0; i < 25; i++) {
+                const p = document.createElement('div');
+                p.className = `particle ${colors[i % 3]}`;
+                p.style.left = Math.random() * 100 + '%';
+                p.style.top = Math.random() * 100 + '%';
+                p.style.setProperty('--tx', (Math.random() - 0.5) * 200 + 'px');
+                p.style.setProperty('--ty', (Math.random() - 0.5) * 200 + 'px');
+                p.style.animationDelay = Math.random() * 18 + 's';
+                container.appendChild(p);
+            }
+        })();
+
+        // ===== Helpers =====
+        function fmtBytes(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function fmtDate(dateStr) {
+            if (!dateStr) return 'نامحدود';
+            return new Date(dateStr).toLocaleDateString('fa-IR', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+        }
+
+        function daysLeft(dateStr) {
+            if (!dateStr) return null;
+            const now = new Date();
+            const expire = new Date(dateStr);
+            return Math.ceil((expire - now) / (1000 * 60 * 60 * 24));
+        }
+
+        async function copyText(text, btn) {
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+
+            btn.classList.add('copied');
+            const origText = btn.innerHTML;
+
+            if (btn.classList.contains('sub-copy-btn')) {
+                btn.innerHTML = '✓ لینک اشتراک کپی شد!';
+            }
+
+            setTimeout(() => {
+                btn.classList.remove('copied');
+                if (btn.classList.contains('sub-copy-btn')) {
+                    btn.innerHTML = '📋 کپی لینک اشتراک';
+                }
+            }, 2000);
+        }
+
+        // ===== Load Data =====
+        async function loadSubInfo() {
+            const pathParts = window.location.pathname.split('/');
+            const token = pathParts[pathParts.length - 1];
+
+            if (!token || token.length < 5) {
+                showError();
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/sub/info/${token}`);
+                if (!res.ok) throw new Error('Not found');
+
+                const data = await res.json();
+                renderData(data);
+            } catch (err) {
+                showError();
+            }
+        }
+
+        function renderData(data) {
+            // User info
+            gEl('userName').textContent = data.name || 'کاربر';
+            gEl('userAvatar').textContent = (data.name || 'U')[0].toUpperCase();
+
+            if (data.email) {
+                gEl('userEmail').textContent = data.email;
+            }
+
+            // Status
+            const statusBadge = gEl('statusBadge');
+            const statusText = gEl('statusText');
+
+            if (!data.enabled) {
+                statusBadge.className = 'status-live disabled';
+                statusText.textContent = 'غیرفعال';
+            } else if (data.is_expired) {
+                statusBadge.className = 'status-live expired';
+                statusText.textContent = 'منقضی شده';
+            } else if (data.over_traffic) {
+                statusBadge.className = 'status-live limited';
+                statusText.textContent = 'اتمام ترافیک';
+            } else {
+                statusBadge.className = 'status-live active';
+                statusText.textContent = 'فعال';
+            }
+
+            // Stats
+            gEl('downloadVal').textContent = fmtBytes(data.down_bytes || 0);
+            gEl('uploadVal').textContent = fmtBytes(data.up_bytes || 0);
+            gEl('maxConnVal').textContent = data.max_connections || '∞';
+
+            // Expire
+            const days = daysLeft(data.expire_date);
+            if (days !== null) {
+                if (days > 0) {
+                    gEl('expireVal').textContent = `${days} روز`;
+                    gEl('expireVal').style.color = days < 3 ? 'var(--error)' : days < 7 ? 'var(--warning)' : '';
+                } else {
+                    gEl('expireVal').textContent = 'منقضی';
+                    gEl('expireVal').style.color = 'var(--error)';
+                }
+            } else {
+                gEl('expireVal').textContent = '∞';
+            }
+
+            // Traffic
+            const used = data.traffic_used || 0;
+            const limit = data.traffic_limit || 0;
+
+            gEl('trafficUsed').textContent = fmtBytes(used);
+            gEl('trafficTotal').textContent = limit > 0 ? fmtBytes(limit) : 'نامحدود';
+
+            if (limit > 0) {
+                const percent = Math.min(Math.round((used / limit) * 100), 100);
+                gEl('trafficPercent').textContent = percent + '%';
+
+                setTimeout(() => {
+                    const fill = gEl('trafficFill');
+                    fill.style.width = percent + '%';
+                    if (percent > 80) fill.classList.add('high');
+                }, 300);
+            } else {
+                gEl('trafficPercent').textContent = '∞';
+            }
+
+            // Config badges
+            const protocol = (data.protocol || 'vless').toUpperCase();
+            const network = data.network || 'ws';
+            const security = data.security || 'none';
+
+            gEl('configBadges').innerHTML = `
+                <span class="c-badge protocol">${protocol}</span>
+                <span class="c-badge network">${network.toUpperCase()}</span>
+                <span class="c-badge security">${security.toUpperCase()}</span>
+                <span class="c-badge uuid-badge">${data.uuid || '-'}</span>
+            `;
+
+            // Links
+            gEl('configLink').textContent = data.link || '-';
+            gEl('subLink').textContent = data.subUrl || '-';
+
+            // QR Code
+            const qrData = encodeURIComponent(data.link || '');
+            gEl('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=239F40&bgcolor=FFFFFF&data=${qrData}`;
+
+            // Show content
+            gEl('loadingScreen').classList.add('hide');
+            gEl('mainContent').style.display = 'block';
+        }
+
+        function showError() {
+            gEl('loadingScreen').classList.add('hide');
+            gEl('errorContent').style.display = 'block';
+        }
+
+        // ===== Init =====
+        window.addEventListener('DOMContentLoaded', loadSubInfo);
+    </script>
+</body>
+</html>
