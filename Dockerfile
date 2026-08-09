@@ -1,36 +1,60 @@
-FROM node:20-slim
+# Build stage
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    curl \
-    wget \
-    unzip \
-    supervisor \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip \
-    && unzip -q Xray-linux-64.zip -d /tmp/xray \
-    && mv /tmp/xray/xray /usr/local/bin/xray \
-    && chmod +x /usr/local/bin/xray \
-    && rm -rf Xray-linux-64.zip /tmp/xray
-
+# Install dependencies
 COPY package*.json ./
-RUN npm install && npm cache clean --force
+RUN npm ci --only=production && npm cache clean --force
 
+# Copy application files
 COPY . .
 
-RUN mkdir -p /etc/xray /data /app/public /var/log/supervisor && \
-    cp /app/xray-config.json /etc/xray/config.json
+# Runtime stage
+FROM node:18-alpine
 
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# Install nginx and other dependencies
+RUN apk add --no-cache \
+    nginx \
+    gettext \
+    tzdata \
+    curl \
+    bash \
+    ca-certificates \
+    && rm -rf /var/cache/apk/*
 
-ENV NODE_ENV=production
-ENV PORT=3000
+# Set timezone to Tehran
+ENV TZ=Asia/Tehran
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-EXPOSE 3000
+# Create app directory
+WORKDIR /app
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Copy from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY . .
+
+# Copy nginx config template
+COPY nginx.conf.template /etc/nginx/nginx.conf.template
+
+# Create necessary directories
+RUN mkdir -p /var/log/nginx /var/lib/nginx /run/nginx /app/data /app/logs \
+    && chown -R node:node /app /var/log/nginx /var/lib/nginx /run/nginx
+
+# Copy start script
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+# Expose ports
+EXPOSE 80 2053
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost/health || exit 1
+
+# Switch to node user
+USER node
+
+# Start application
+CMD ["/start.sh"]
