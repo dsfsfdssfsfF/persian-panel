@@ -5,7 +5,6 @@ const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
 
-// Load env
 require('dotenv').config();
 
 const app = express();
@@ -37,7 +36,6 @@ app.use(session({
 }));
 
 // ===== Static Files =====
-// Serve panel at /panel and also at root
 app.use(PANEL_PATH, express.static(path.join(__dirname, 'public')));
 app.use('/', express.static(path.join(__dirname, 'public')));
 
@@ -95,7 +93,72 @@ app.get('/api/server-info', (req, res) => {
     });
 });
 
-// ===== Subscription Endpoint =====
+// ===== Build Config Link Helper =====
+function buildConfigLink(client, domain) {
+    const protocol = client.i_protocol || 'vless';
+    const network = client.i_network || 'ws';
+    const port = client.i_port || 443;
+    const wsPath = client.ws_path || '/ws';
+    const sni = client.tls_sni || domain;
+    const security = client.i_security || 'none';
+
+    let link = '';
+
+    if (protocol === 'vless') {
+        link = `vless://${client.uuid}@${domain}:${port}`;
+        link += `?type=${network}&security=${security}`;
+        if (network === 'ws' || network === 'httpupgrade' || network === 'xhttp') {
+            link += `&path=${encodeURIComponent(wsPath)}&host=${domain}`;
+        }
+        if (network === 'grpc') {
+            link += `&serviceName=${client.grpc_service || ''}`;
+        }
+        if (security === 'tls') {
+            link += `&sni=${sni}`;
+        }
+        if (security === 'reality') {
+            link += `&sni=${sni}&pbk=${client.reality_pbk || ''}&sid=${client.reality_sid || ''}&fp=chrome`;
+        }
+        link += `&flow=`;
+        link += `#${encodeURIComponent(client.name)}`;
+
+    } else if (protocol === 'vmess') {
+        const cfg = {
+            v: "2",
+            ps: client.name,
+            add: domain,
+            port: port,
+            id: client.uuid,
+            aid: 0,
+            scy: "auto",
+            net: network,
+            type: "none",
+            host: domain,
+            path: wsPath,
+            tls: security === 'tls' ? 'tls' : '',
+            sni: sni
+        };
+        link = 'vmess://' + Buffer.from(JSON.stringify(cfg)).toString('base64');
+
+    } else if (protocol === 'trojan') {
+        link = `trojan://${client.uuid}@${domain}:${port}`;
+        link += `?type=${network}&security=${security}`;
+        if (network === 'ws' || network === 'httpupgrade') {
+            link += `&path=${encodeURIComponent(wsPath)}&host=${domain}`;
+        }
+        if (network === 'grpc') {
+            link += `&serviceName=${client.grpc_service || ''}`;
+        }
+        if (security === 'tls') {
+            link += `&sni=${sni}`;
+        }
+        link += `#${encodeURIComponent(client.name)}`;
+    }
+
+    return { link, protocol, network, security };
+}
+
+// ===== Subscription Endpoint (raw config for apps) =====
 app.get('/sub/:token', (req, res) => {
     try {
         const client = db.getClientBySubToken(req.params.token);
@@ -103,50 +166,77 @@ app.get('/sub/:token', (req, res) => {
             return res.status(404).send('Not Found');
         }
 
-        // Build config based on protocol
-        const domain = process.env.DOMAIN || req.headers.host || 'localhost';
-        let link = '';
-
-        const protocol = client.i_protocol || 'vless';
-        const network = client.i_network || 'ws';
-        const port = client.i_port || 443;
-        const wsPath = client.ws_path || '/ws';
-        const sni = client.tls_sni || domain;
-
-        if (protocol === 'vless') {
-            link = `vless://${client.uuid}@${domain}:${port}?type=${network}&security=tls&path=${encodeURIComponent(wsPath)}&host=${domain}&sni=${sni}#${encodeURIComponent(client.name)}`;
-        } else if (protocol === 'vmess') {
-            const vmessConfig = {
-                v: "2", ps: client.name, add: domain, port: port,
-                id: client.uuid, aid: 0, scy: "auto", net: network,
-                type: "none", host: domain, path: wsPath,
-                tls: "tls", sni: sni
-            };
-            link = 'vmess://' + Buffer.from(JSON.stringify(vmessConfig)).toString('base64');
-        } else if (protocol === 'trojan') {
-            link = `trojan://${client.uuid}@${domain}:${port}?type=${network}&security=tls&path=${encodeURIComponent(wsPath)}&host=${domain}&sni=${sni}#${encodeURIComponent(client.name)}`;
+        // Check if client is active
+        if (!client.enabled) {
+            return res.status(403).send('Account Disabled');
         }
 
+        const domain = process.env.DOMAIN || req.headers.host || 'localhost';
+        const { link } = buildConfigLink(client, domain);
+
         const output = Buffer.from(link).toString('base64');
+
         res.set('Content-Type', 'text/plain; charset=utf-8');
+        res.set('Profile-Title', Buffer.from(client.name).toString('base64'));
+        res.set('Subscription-UserInfo',
+            `upload=${client.up_bytes || 0}; download=${client.down_bytes || 0}; total=${client.traffic_limit || 0}; expire=${client.expire_date ? Math.floor(new Date(client.expire_date).getTime() / 1000) : 0}`
+        );
         res.set('Content-Disposition', `attachment; filename="${client.name}.txt"`);
         res.send(output);
 
     } catch (err) {
+        console.error('Sub error:', err);
         res.status(500).send('Error');
     }
 });
 
-// ===== Sub Info Page =====
-app.get('/sub/info/:token', (req, res) => {
+// ===== Sub Info API (for sub.html page) =====
+app.get('/api/sub/info/:token', (req, res) => {
     try {
         const client = db.getClientBySubToken(req.params.token);
         if (!client) {
-            return res.status(404).send('Not Found');
+            return res.status(404).json({ error: 'Not found' });
         }
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+
+        const domain = process.env.DOMAIN || req.headers.host || 'localhost';
+        const { link, protocol, network, security } = buildConfigLink(client, domain);
+        const subUrl = `https://${domain}/sub/${client.sub_token}`;
+
+        const isExpired = client.expire_date && new Date(client.expire_date) < new Date();
+        const overTraffic = client.traffic_limit > 0 && client.traffic_used >= client.traffic_limit;
+
+        res.json({
+            name: client.name,
+            email: client.email,
+            uuid: client.uuid,
+            enabled: client.enabled === 1,
+            traffic_limit: client.traffic_limit,
+            traffic_used: client.traffic_used,
+            up_bytes: client.up_bytes || 0,
+            down_bytes: client.down_bytes || 0,
+            expire_date: client.expire_date,
+            max_connections: client.max_connections,
+            is_expired: isExpired,
+            over_traffic: overTraffic,
+            protocol: protocol,
+            network: network,
+            security: security,
+            link: link,
+            subUrl: subUrl
+        });
     } catch (err) {
-        res.status(500).send('Error');
+        console.error('Sub info error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ===== Sub Info Page (serves sub.html) =====
+app.get('/sub/info/:token', (req, res) => {
+    const subPath = path.join(__dirname, 'public', 'sub.html');
+    if (fs.existsSync(subPath)) {
+        res.sendFile(subPath);
+    } else {
+        res.status(404).send('Sub page not found. Make sure public/sub.html exists.');
     }
 });
 
@@ -168,11 +258,15 @@ app.use((err, req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('🇮🇷 ══════════════════════════════════════════');
-    console.log('   PERSIAN PANEL');
-    console.log('   ══════════════════════════════════════════');
+    console.log('   PERSIAN PANEL v1.0.0');
+    console.log('   ──────────────────────────────────────────');
     console.log(`   🚀 Port: ${PORT}`);
     console.log(`   🌐 Panel: http://0.0.0.0:${PORT}${PANEL_PATH}`);
+    console.log(`   📡 Sub URL: http://0.0.0.0:${PORT}/sub/TOKEN`);
+    console.log(`   📄 Sub Info: http://0.0.0.0:${PORT}/sub/info/TOKEN`);
     console.log(`   📂 Env: ${process.env.NODE_ENV || 'development'}`);
     console.log('   ══════════════════════════════════════════');
     console.log('');
 });
+
+module.exports = app;
