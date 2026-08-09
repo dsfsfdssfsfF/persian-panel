@@ -1,32 +1,5 @@
-# Dependencies
 node_modules/
-package-lock.json
-yarn.lock
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Data
 data/
-logs/
+.env
 *.db
-*.db-shm
-*.db-wal
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Build
-dist/
-build/
 *.log
