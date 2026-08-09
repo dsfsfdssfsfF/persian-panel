@@ -1,145 +1,130 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    getAllClients, 
-    getClientById, 
-    createClient, 
-    updateClient, 
-    deleteClient,
-    resetClientTraffic 
-} = require('../db/database');
+const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
 
-// همه route ها نیاز به احراز هویت دارند
 router.use(requireAuth);
 
-// GET /api/clients - دریافت لیست کاربران
+// GET /api/clients
 router.get('/', (req, res) => {
     try {
-        const { search = '', inbound_id } = req.query;
-        const clients = getAllClients(search, inbound_id);
-        res.json(clients);
-    } catch (error) {
-        console.error('Get clients error:', error);
-        res.status(500).json({ error: error.message });
+        const { search, inbound_id } = req.query;
+        res.json(db.getAllClients(search || '', inbound_id || null));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/clients/:id - دریافت اطلاعات یک کاربر
-router.get('/:id', (req, res) => {
-    try {
-        const client = getClientById(req.params.id);
-        if (!client) {
-            return res.status(404).json({ error: 'کاربر یافت نشد' });
-        }
-        res.json(client);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// POST /api/clients - ایجاد کاربر جدید
+// POST /api/clients
 router.post('/', (req, res) => {
     try {
         const { inbound_id, name } = req.body;
-
         if (!inbound_id || !name) {
-            return res.status(400).json({ 
-                error: 'Inbound و نام کاربر الزامی است' 
-            });
+            return res.status(400).json({ error: 'Inbound و نام الزامی است' });
         }
 
-        const result = createClient(req.body);
-        
-        res.status(201).json({
-            success: true,
-            id: result.lastInsertRowid,
-            message: 'کاربر با موفقیت ایجاد شد'
-        });
-    } catch (error) {
-        console.error('Create client error:', error);
-        res.status(500).json({ error: error.message });
+        // Check inbound exists
+        const inbound = db.getInboundById(inbound_id);
+        if (!inbound) {
+            return res.status(400).json({ error: 'Inbound یافت نشد' });
+        }
+
+        const result = db.createClient(req.body);
+        res.status(201).json({ success: true, id: result.lastInsertRowid });
+    } catch (err) {
+        console.error('Create client error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
-// PUT /api/clients/:id - ویرایش کاربر
+// PUT /api/clients/:id
 router.put('/:id', (req, res) => {
     try {
-        const client = getClientById(req.params.id);
-        if (!client) {
-            return res.status(404).json({ error: 'کاربر یافت نشد' });
-        }
+        const client = db.getClientById(req.params.id);
+        if (!client) return res.status(404).json({ error: 'کاربر یافت نشد' });
 
-        updateClient(req.params.id, req.body);
-        
-        res.json({
-            success: true,
-            message: 'کاربر با موفقیت ویرایش شد'
-        });
-    } catch (error) {
-        console.error('Update client error:', error);
-        res.status(500).json({ error: error.message });
+        db.updateClient(req.params.id, req.body);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Update client error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
-// DELETE /api/clients/:id - حذف کاربر
+// DELETE /api/clients/:id
 router.delete('/:id', (req, res) => {
     try {
-        const client = getClientById(req.params.id);
-        if (!client) {
-            return res.status(404).json({ error: 'کاربر یافت نشد' });
-        }
+        const client = db.getClientById(req.params.id);
+        if (!client) return res.status(404).json({ error: 'کاربر یافت نشد' });
 
-        deleteClient(req.params.id);
-        
-        res.json({
-            success: true,
-            message: 'کاربر با موفقیت حذف شد'
-        });
-    } catch (error) {
-        console.error('Delete client error:', error);
-        res.status(500).json({ error: error.message });
+        db.deleteClient(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Delete client error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
-// POST /api/clients/:id/reset-traffic - ریست ترافیک
+// POST /api/clients/:id/reset-traffic
 router.post('/:id/reset-traffic', (req, res) => {
     try {
-        const client = getClientById(req.params.id);
-        if (!client) {
-            return res.status(404).json({ error: 'کاربر یافت نشد' });
-        }
+        const client = db.getClientById(req.params.id);
+        if (!client) return res.status(404).json({ error: 'کاربر یافت نشد' });
 
-        resetClientTraffic(req.params.id);
-        
-        res.json({
-            success: true,
-            message: 'ترافیک با موفقیت ریست شد'
-        });
-    } catch (error) {
-        console.error('Reset traffic error:', error);
-        res.status(500).json({ error: error.message });
+        db.resetClientTraffic(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/clients/:id/config - دریافت کانفیگ کاربر
+// GET /api/clients/:id/config
 router.get('/:id/config', (req, res) => {
     try {
-        const client = getClientById(req.params.id);
-        if (!client) {
-            return res.status(404).json({ error: 'کاربر یافت نشد' });
-        }
+        const client = db.getClientById(req.params.id);
+        if (!client) return res.status(404).json({ error: 'کاربر یافت نشد' });
 
-        // ساخت لینک کانفیگ (نمونه ساده - باید بر اساس پروتکل واقعی باشد)
-        const domain = process.env.DOMAIN || 'localhost';
-        const port = client.i_port || 443;
+        const domain = process.env.DOMAIN || req.headers.host || 'localhost';
         const protocol = client.i_protocol || 'vless';
-        
+        const network = client.i_network || 'ws';
+        const port = client.i_port || 443;
+        const wsPath = client.ws_path || '/ws';
+        const sni = client.tls_sni || domain;
+        const security = client.i_security || 'none';
+
         let link = '';
+
         if (protocol === 'vless') {
-            link = `vless://${client.uuid}@${domain}:${port}?type=${client.i_network || 'ws'}&security=${client.i_security || 'none'}`;
-            if (client.ws_path) link += `&path=${encodeURIComponent(client.ws_path)}`;
-            if (client.tls_sni) link += `&sni=${client.tls_sni}`;
+            link = `vless://${client.uuid}@${domain}:${port}`;
+            link += `?type=${network}&security=${security}`;
+            if (network === 'ws') link += `&path=${encodeURIComponent(wsPath)}&host=${domain}`;
+            if (network === 'grpc') link += `&serviceName=${client.grpc_service || ''}`;
+            if (security === 'tls') link += `&sni=${sni}`;
+            if (security === 'reality') link += `&sni=${sni}&pbk=${client.reality_pbk || ''}&sid=${client.reality_sid || ''}`;
+            link += `&flow=`;
+            link += `#${encodeURIComponent(client.name)}`;
+        } else if (protocol === 'vmess') {
+            const cfg = {
+                v: "2",
+                ps: client.name,
+                add: domain,
+                port: port,
+                id: client.uuid,
+                aid: 0,
+                scy: "auto",
+                net: network,
+                type: "none",
+                host: domain,
+                path: wsPath,
+                tls: security === 'tls' ? 'tls' : '',
+                sni: sni
+            };
+            link = 'vmess://' + Buffer.from(JSON.stringify(cfg)).toString('base64');
+        } else if (protocol === 'trojan') {
+            link = `trojan://${client.uuid}@${domain}:${port}`;
+            link += `?type=${network}&security=${security}`;
+            if (network === 'ws') link += `&path=${encodeURIComponent(wsPath)}&host=${domain}`;
+            if (security === 'tls') link += `&sni=${sni}`;
             link += `#${encodeURIComponent(client.name)}`;
         }
 
@@ -149,12 +134,12 @@ router.get('/:id/config', (req, res) => {
             link,
             subUrl,
             uuid: client.uuid,
-            protocol: client.i_protocol,
-            network: client.i_network
+            protocol,
+            network
         });
-    } catch (error) {
-        console.error('Get config error:', error);
-        res.status(500).json({ error: error.message });
+    } catch (err) {
+        console.error('Get config error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
