@@ -1,0 +1,177 @@
+worker_processes 1;
+pid /tmp/nginx.pid;
+
+events { worker_connections 1024; }
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    sendfile      on;
+    client_max_body_size 50m;
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript;
+    tcp_nodelay on;
+    keepalive_timeout 75s;
+
+    client_body_temp_path /tmp/client_temp;
+    proxy_temp_path       /tmp/proxy_temp;
+    fastcgi_temp_path     /tmp/fastcgi_temp;
+    uwsgi_temp_path       /tmp/uwsgi_temp;
+    scgi_temp_path        /tmp/scgi_temp;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    server {
+        listen ${PORT};
+        server_name _;
+
+        # --- inbound slot 1: internal port 8081 ---
+        # set this inbound's Path in the panel to /in1
+        location /in1 {
+            proxy_pass http://127.0.0.1:8081;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        # --- inbound slot 2: internal port 8082 ---
+        # set this inbound's Path in the panel to /in2
+        location /in2 {
+            proxy_pass http://127.0.0.1:8082;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        # --- inbound slot 3: internal port 8083 ---
+        # set this inbound's Path in the panel to /in3
+        location /in3 {
+            proxy_pass http://127.0.0.1:8083;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        # --- inbound slot 4: internal port 8084 ---
+        # set this inbound's Path in the panel to /in4
+        location /in4 {
+            proxy_pass http://127.0.0.1:8084;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        # --- inbound slot 5: internal port 8085 ---
+        # set this inbound's Path in the panel to /in5
+        location /in5 {
+            proxy_pass http://127.0.0.1:8085;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        # --- inbound slot 6: internal port 8086 ---
+        # set this inbound's Path in the panel to /in6
+        location /in6 {
+            proxy_pass http://127.0.0.1:8086;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        # --- inbound slot 7: internal port 8087 ---
+        # set this inbound's Path in the panel to /in7
+        location /in7 {
+            proxy_pass http://127.0.0.1:8087;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        # --- inbound slot 8: internal port 8088 ---
+        # set this inbound's Path in the panel to /in8
+        location /in8 {
+            proxy_pass http://127.0.0.1:8088;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        # --- inbound slot 9: internal port 8089 ---
+        # set this inbound's Path in the panel to /in9
+        location /in9 {
+            proxy_pass http://127.0.0.1:8089;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_buffering off;
+            proxy_read_timeout 300s;
+        }
+
+        # --- Subscription service ---
+        # must match the subscription "Path" set in Panel Settings > Subscription
+        location /sub {
+            proxy_pass http://127.0.0.1:2096;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        # --- Everything else: the panel itself ---
+        location / {
+            proxy_pass http://127.0.0.1:2053;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+    }
+}
